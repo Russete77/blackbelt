@@ -1,5 +1,6 @@
 import { Video, Music2, MonitorPlay, type LucideIcon } from "lucide-react";
 import type { EstagioPipeline, TipoProjeto, TipoVersao, Prioridade } from "@/types/domain";
+import type { StatusDemanda } from "@/types/demandas";
 
 export const labelEstagio = (e: EstagioPipeline): string =>
   ({ ideia: "Ideia", gravacao: "Gravação", mixagem: "Mixagem",
@@ -32,3 +33,11 @@ const ICONES_PLATAFORMA: Record<string, LucideIcon> = {
   spotify: Music2, deezer: Music2, apple: Music2,
 };
 export const iconePlataforma = (p: string): LucideIcon => ICONES_PLATAFORMA[p.toLowerCase()] ?? MonitorPlay;
+
+// Rótulo/tom de exibição do status de uma demanda (módulo Demandas) — mesma
+// paleta de tons do Badge (aprovado = concluída/verde, accent = em andamento).
+export const labelStatusDemanda = (s: StatusDemanda): string =>
+  ({ aberta: "Aberta", em_andamento: "Em andamento", concluida: "Concluída" }[s]);
+
+export const toneStatusDemanda = (s: StatusDemanda): "media" | "accent" | "aprovado" =>
+  ({ aberta: "media", em_andamento: "accent", concluida: "aprovado" }[s] as "media" | "accent" | "aprovado");

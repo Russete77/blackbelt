@@ -12,6 +12,8 @@ import type {
 import type { ShowDetalhado } from "@/types/shows";
 import type { MetricaDetalhada } from "@/types/analytics";
 import type { RegistrosDaFaixa, StatusRegistroFaixa } from "@/types/registro";
+import type { Notificacao } from "@/types/notificacoes";
+import type { Demanda } from "@/types/demandas";
 import { normalizarStatusShow, parseRiderCamarim, parseRiderTecnico,
   riderCamarimTemConteudo, riderTecnicoTemConteudo } from "@/lib/shows";
 import {
@@ -988,4 +990,90 @@ export async function getStatusRegistros(): Promise<StatusRegistroFaixa[]> {
       videogramaOk: videogramaOkPorFaixa.get(f.id) ?? false,
     };
   });
+}
+
+// ------------------------------------------------------------------
+// Notificações (in-app) — sempre do usuário logado. A RLS já restringe
+// select/update à própria linha (ou admin), mas filtramos por user_id aqui
+// também: um admin não deve ver o inbox de outra pessoa na própria sino.
+// ------------------------------------------------------------------
+
+interface NotificacaoRow {
+  id: string; titulo: string; mensagem: string; link: string | null;
+  lida: boolean; created_at: string;
+}
+
+function mapNotificacao(row: NotificacaoRow): Notificacao {
+  return {
+    id: row.id,
+    titulo: row.titulo,
+    mensagem: row.mensagem,
+    link: row.link ?? undefined,
+    lida: row.lida,
+    criadoEm: row.created_at,
+  };
+}
+
+export async function getNotificacoes(limit = 20): Promise<Notificacao[]> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return [];
+
+  const { data, error } = await supabase
+    .from("notificacoes")
+    .select("*")
+    .eq("user_id", user.id)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (error) throw error;
+  return (data ?? []).map(mapNotificacao);
+}
+
+export async function contarNaoLidas(): Promise<number> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return 0;
+
+  const { count, error } = await supabase
+    .from("notificacoes")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", user.id)
+    .eq("lida", false);
+  if (error) throw error;
+  return count ?? 0;
+}
+
+// ------------------------------------------------------------------
+// Demandas — tarefas/pedidos atribuídos a um artista (inclui demandas de
+// clipe: são demandas comuns, só com o título "Clipe: ..."). RLS: qualquer
+// usuário autenticado com acesso ao workspace do artista pode ver/criar.
+// ------------------------------------------------------------------
+
+interface DemandaRow {
+  id: string; artista_id: string; titulo: string; descricao: string | null;
+  status: Demanda["status"]; prazo: string | null; criado_por: string | null; created_at: string;
+}
+
+function mapDemanda(row: DemandaRow): Demanda {
+  return {
+    id: row.id,
+    artistaId: row.artista_id,
+    titulo: row.titulo,
+    descricao: row.descricao ?? undefined,
+    status: row.status,
+    prazo: row.prazo ?? undefined,
+    criadoPor: row.criado_por ?? undefined,
+    criadoEm: row.created_at,
+  };
+}
+
+export async function getDemandasDoArtista(artistaId: string): Promise<Demanda[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("demandas")
+    .select("*")
+    .eq("artista_id", artistaId)
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  return (data ?? []).map(mapDemanda);
 }
