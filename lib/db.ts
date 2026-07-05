@@ -394,6 +394,35 @@ export async function getLancamentosDoArtista(artistaId: string): Promise<Faixa[
   return (data ?? []).map(mapFaixa);
 }
 
+// Faixa de estúdio (origem !== 'footprint') com o nome do artista do projeto
+// anexado — item de card do Kanban de produção da página Estúdio (ver
+// app/(app)/estudio/page.tsx). `artistaNome` é o primeiro artista vinculado
+// ao projeto, ou "Selo" para projeto sem vínculo (projeto do selo).
+export interface FaixaEstudioComArtista {
+  faixa: Faixa;
+  artistaNome: string;
+}
+
+// Todas as faixas realmente em produção no selo, para o Kanban por estágio
+// da página Estúdio: reusa getTodosProjetos + getFaixasDosProjetos (mesma
+// query em lote já usada na antiga listagem) e filtrarProjetosEstudio (regra
+// pura que já exclui projetos 100% footprint, ver acima). Dentro dos
+// projetos restantes, mantém só as faixas com origem !== 'footprint' — as
+// faixas footprint desses projetos (se houver) já vivem na aba Feats do
+// artista, não aqui.
+export async function getFaixasEstudioComArtista(): Promise<FaixaEstudioComArtista[]> {
+  const projetos = await getTodosProjetos();
+  const faixasPorProjeto = await getFaixasDosProjetos(projetos.map((p) => p.id));
+  const projetosEstudio = filtrarProjetosEstudio(projetos, faixasPorProjeto);
+
+  return projetosEstudio.flatMap((projeto) => {
+    const artistaNome = projeto.artistas[0] ?? "Selo";
+    return (faixasPorProjeto.get(projeto.id) ?? [])
+      .filter((f) => f.origem !== "footprint")
+      .map((faixa) => ({ faixa, artistaNome }));
+  });
+}
+
 // ------------------------------------------------------------------
 // Versões + áudio (Storage, bucket privado `audio`)
 // ------------------------------------------------------------------
