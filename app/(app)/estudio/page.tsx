@@ -1,11 +1,13 @@
 import { Disc3 } from "lucide-react";
 import { ProjetoCard } from "@/components/estudio/ProjetoCard";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { getTodosProjetos, getFaixasDosProjetos } from "@/lib/db";
+import { getTodosProjetos, getFaixasDosProjetos, getViewsPorFaixa } from "@/lib/db";
 
 export default async function EstudioPage() {
   const projetos = await getTodosProjetos();
   const faixasPorProjeto = await getFaixasDosProjetos(projetos.map((p) => p.id));
+  const todasFaixaIds = Array.from(faixasPorProjeto.values()).flatMap((fs) => fs.map((f) => f.id));
+  const viewsPorFaixa = await getViewsPorFaixa(todasFaixaIds);
   const projetosComFaixas = projetos.map((projeto) => ({
     projeto,
     faixas: faixasPorProjeto.get(projeto.id) ?? [],
@@ -26,7 +28,7 @@ export default async function EstudioPage() {
         )}
         {projetosComFaixas.map(({ projeto, faixas }, i) => (
           <div key={projeto.id} className="animate-fade-in-up" style={{ animationDelay: `${i * 40}ms` }}>
-            <ProjetoCard projeto={projeto} faixas={faixas} />
+            <ProjetoCard projeto={projeto} faixas={faixas} viewsPorFaixa={viewsPorFaixa} />
           </div>
         ))}
       </div>

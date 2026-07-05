@@ -4,7 +4,7 @@ import { ProjetoCard } from "@/components/estudio/ProjetoCard";
 import { SubirMusica } from "@/components/estudio/SubirMusica";
 import { NovoProjetoForm } from "@/components/artista/NovoProjetoForm";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { getArtista, getProjetosDoArtista, getFaixasDosProjetos, getSignedCoverUrl } from "@/lib/db";
+import { getArtista, getProjetosDoArtista, getFaixasDosProjetos, getSignedCoverUrl, getViewsPorFaixa } from "@/lib/db";
 
 export default async function ArtistaProjetosPage({
   params,
@@ -17,6 +17,8 @@ export default async function ArtistaProjetosPage({
 
   const projetos = await getProjetosDoArtista(artista.id);
   const faixasPorProjeto = await getFaixasDosProjetos(projetos.map((p) => p.id));
+  const todasFaixaIds = Array.from(faixasPorProjeto.values()).flatMap((fs) => fs.map((f) => f.id));
+  const viewsPorFaixa = await getViewsPorFaixa(todasFaixaIds);
   const projetosComFaixas = await Promise.all(
     projetos.map(async (projeto) => ({
       projeto: projeto.capaUrl
@@ -46,7 +48,7 @@ export default async function ArtistaProjetosPage({
         )}
         {projetosComFaixas.map(({ projeto, faixas }, i) => (
           <div key={projeto.id} className="animate-fade-in-up" style={{ animationDelay: `${i * 40}ms` }}>
-            <ProjetoCard projeto={projeto} faixas={faixas} />
+            <ProjetoCard projeto={projeto} faixas={faixas} viewsPorFaixa={viewsPorFaixa} />
           </div>
         ))}
       </div>
