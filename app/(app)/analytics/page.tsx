@@ -1,0 +1,113 @@
+import { Suspense } from "react";
+import { BarChart3, Headphones, Wallet, Music2 } from "lucide-react";
+import { StatTile } from "@/components/ui/StatTile";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { TabelaFaixas } from "@/components/analytics/TabelaFaixas";
+import { GraficoBarras, type SerieBarra } from "@/components/analytics/GraficoBarras";
+import { GraficoLinha } from "@/components/analytics/GraficoLinha";
+import { FiltroAnalytics } from "@/components/analytics/FiltroAnalytics";
+import { ImportarCSV } from "@/components/analytics/ImportarCSV";
+import { SincronizarYoutube } from "@/components/analytics/SincronizarYoutube";
+import { getArtistas, getMetricas } from "@/lib/db";
+import {
+  totaisMetricas, porFaixa, porMes, porArtistaEPlataforma,
+  formatarReceita, formatarStreams, corCategoria,
+} from "@/lib/metricas";
+import { youtubeConfigurado } from "@/lib/youtube";
+
+export default async function AnalyticsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ artista?: string; plataforma?: string }>;
+}) {
+  const { artista, plataforma } = await searchParams;
+  const [metricas, artistas] = await Promise.all([getMetricas(), getArtistas()]);
+
+  const plataformasDistintas = Array.from(new Set(metricas.map((m) => m.plataforma))).sort();
+
+  const filtradas = metricas.filter(
+    (m) => (!artista || m.artistaId === artista) && (!plataforma || m.plataforma === plataforma),
+  );
+
+  const totais = totaisMetricas(filtradas);
+  const linhasFaixas = porFaixa(filtradas);
+  const linhasMes = porMes(filtradas).map((l) => ({ rotulo: l.rotulo, valor: l.receita }));
+  const linhasArtistaPlataforma = porArtistaEPlataforma(filtradas);
+
+  const seriesPlataforma: SerieBarra[] = plataformasDistintas.map((p) => ({
+    chave: p,
+    nome: p,
+    cor: corCategoria(p, plataformasDistintas),
+  }));
+
+  const faixasMonetizadas = linhasFaixas.length;
+
+  return (
+    <div className="p-4 md:p-6">
+      <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="mb-1 font-display text-2xl uppercase tracking-tight md:text-3xl">Analytics</h1>
+          <p className="text-sm text-muted">
+            Views × recebimento do selo — transparente, importado direto das planilhas das plataformas.
+          </p>
+        </div>
+        <ImportarCSV artistas={artistas} />
+      </div>
+
+      <div className="mb-6 w-full min-w-48 sm:w-auto">
+        <Suspense fallback={null}>
+          <FiltroAnalytics artistas={artistas} plataformas={plataformasDistintas} />
+        </Suspense>
+      </div>
+
+      {metricas.length === 0 ? (
+        <EmptyState
+          icon={BarChart3}
+          title="Nenhuma métrica importada ainda."
+          hint='Clique em "Importar planilha" para trazer streams e receita das plataformas — não existe leitura automática de números do Spotify.'
+        />
+      ) : (
+        <div className="flex flex-col gap-6">
+          <div className="grid gap-4 sm:grid-cols-3">
+            <StatTile icon={Headphones} label="Streams" value={formatarStreams(totais.streams)} />
+            <StatTile icon={Wallet} label="Receita" value={formatarReceita(totais.receita)} />
+            <StatTile icon={Music2} label="Faixas monetizadas" value={String(faixasMonetizadas)} />
+          </div>
+
+          <div className="grid gap-4 lg:grid-cols-2">
+            <div className="rounded-lg border border-line bg-surface p-4 md:p-5">
+              <h2 className="mb-3 text-sm font-semibold">Streams por artista, por plataforma</h2>
+              {linhasArtistaPlataforma.length === 0 ? (
+                <p className="py-8 text-center text-xs text-muted">Sem dados para os filtros atuais.</p>
+              ) : (
+                <GraficoBarras
+                  dados={linhasArtistaPlataforma}
+                  series={seriesPlataforma}
+                  formatarValor={formatarStreams}
+                  empilhado
+                />
+              )}
+            </div>
+            <div className="rounded-lg border border-line bg-surface p-4 md:p-5">
+              <h2 className="mb-3 text-sm font-semibold">Receita por mês</h2>
+              {linhasMes.length === 0 ? (
+                <p className="py-8 text-center text-xs text-muted">Sem dados para os filtros atuais.</p>
+              ) : (
+                <GraficoLinha dados={linhasMes} formatarValor={formatarReceita} />
+              )}
+            </div>
+          </div>
+
+          <div>
+            <h2 className="mb-3 text-sm font-semibold">Por faixa</h2>
+            <TabelaFaixas linhas={linhasFaixas} />
+          </div>
+
+          <div className="border-t border-line pt-4">
+            <SincronizarYoutube configurado={youtubeConfigurado()} artistas={artistas} />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

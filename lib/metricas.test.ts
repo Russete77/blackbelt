@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
-  totaisMetricas, porPlataforma, porArtista, porFaixa, porMes,
+  totaisMetricas, porPlataforma, porArtista, porFaixa, porMes, porArtistaEPlataforma,
   receitaPor1kStreams, formatarReceita, formatarStreams, corCategoria,
 } from "./metricas";
 import type { MetricaDetalhada } from "@/types/analytics";
@@ -73,6 +73,20 @@ describe("porFaixa", () => {
   it("faixa sem streams importados dá receitaPor1kStreams null", () => {
     const linhas = porFaixa([m({ faixaId: "f1", faixaTitulo: "Corre", streams: undefined, receita: 20 })]);
     expect(linhas[0].receitaPor1kStreams).toBeNull();
+  });
+});
+
+describe("porArtistaEPlataforma", () => {
+  it("uma linha por artista com uma chave dinâmica por plataforma, ordenada por total desc", () => {
+    const linhas = porArtistaEPlataforma([
+      m({ artistaId: "a1", artistaNome: "Bielzin", plataforma: "spotify", streams: 100 }),
+      m({ artistaId: "a1", artistaNome: "Bielzin", plataforma: "youtube", streams: 50 }),
+      m({ artistaId: "a2", artistaNome: "Vitin", plataforma: "spotify", streams: 900 }),
+    ]);
+    expect(linhas).toEqual([
+      { chave: "a2", rotulo: "Vitin", spotify: 900 },
+      { chave: "a1", rotulo: "Bielzin", spotify: 100, youtube: 50 },
+    ]);
   });
 });
 

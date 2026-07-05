@@ -64,6 +64,28 @@ export function porFaixa(metricas: MetricaDetalhada[]): LinhaFaixaAgregada[] {
   return linhas.map((l) => ({ ...l, receitaPor1kStreams: receitaPor1kStreams(l.receita, l.streams) }));
 }
 
+// Shape para o gráfico de barras empilhado "streams por artista, por
+// plataforma": uma linha por artista, uma chave dinâmica por plataforma
+// (soma de streams). `series` traz as plataformas na ordem estável passada
+// (ver PALETA_CATEGORICA/corCategoria) para a legenda e as cores baterem
+// entre re-renderizações mesmo com o filtro trocando o conjunto de artistas.
+export function porArtistaEPlataforma(
+  metricas: MetricaDetalhada[],
+): Record<string, string | number>[] {
+  const porArtista = new Map<string, Record<string, string | number>>();
+  for (const m of metricas) {
+    const linha = porArtista.get(m.artistaId) ?? { chave: m.artistaId, rotulo: m.artistaNome ?? m.artistaId };
+    const atual = typeof linha[m.plataforma] === "number" ? (linha[m.plataforma] as number) : 0;
+    linha[m.plataforma] = atual + (m.streams ?? 0);
+    porArtista.set(m.artistaId, linha);
+  }
+  return Array.from(porArtista.values()).sort((a, b) => {
+    const totalA = Object.values(a).filter((v): v is number => typeof v === "number").reduce((s, v) => s + v, 0);
+    const totalB = Object.values(b).filter((v): v is number => typeof v === "number").reduce((s, v) => s + v, 0);
+    return totalB - totalA;
+  });
+}
+
 // Chave "YYYY-MM" a partir de metricas.data (coluna `date` pura, "YYYY-MM-DD").
 function chaveMesMetrica(data: string): string {
   return data.slice(0, 7);

@@ -4,6 +4,7 @@
 // RLS e auth.uid() se aplicam. NUNCA usar a service-role aqui.
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { caminhoSeguro } from "@/lib/forms";
 
 export interface EstadoAcao {
   status: "idle" | "ok" | "error";
@@ -21,11 +22,8 @@ const TIPOS_PROJETO = ["single", "ep", "album", "feat"] as const;
 const CATEGORIAS_COMENTARIO = ["beat", "mix", "master", "letra", "geral"] as const;
 const PRIORIDADES_COMENTARIO = ["alta", "media", "baixa"] as const;
 
-// Sanitiza o caminho de revalidação vindo do form (só caminhos internos).
-function caminhoSeguro(bruto: FormDataEntryValue | null): string {
-  const caminho = String(bruto ?? "/");
-  return caminho.startsWith("/") ? caminho : "/";
-}
+// caminhoSeguro: ver lib/forms.ts (movido de volta para lá — este arquivo é
+// "use server", e todo export aqui precisa ser uma Server Action async).
 
 export async function criarProjeto(_estado: EstadoAcao, formData: FormData): Promise<EstadoAcao> {
   const nome = String(formData.get("nome") ?? "").trim();

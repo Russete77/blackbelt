@@ -7,9 +7,9 @@ describe("navItems", () => {
       "Home", "Artistas", "Estúdio", "Analytics", "Previsão", "Shows", "Registro",
     ]);
   });
-  it("Home, Artistas, Estúdio e Shows estão disponíveis nesta fatia", () => {
+  it("Home, Artistas, Estúdio, Analytics e Shows estão disponíveis nesta fatia", () => {
     const disponiveis = navItems.filter((n) => n.disponivel).map((n) => n.label);
-    expect(disponiveis).toEqual(["Home", "Artistas", "Estúdio", "Shows"]);
+    expect(disponiveis).toEqual(["Home", "Artistas", "Estúdio", "Analytics", "Shows"]);
   });
 });
 
@@ -33,6 +33,9 @@ describe("navItensMobile", () => {
   it("5 slots, disponíveis primeiro", () => {
     const itens = navItensMobile();
     expect(itens).toHaveLength(5);
-    expect(itens.slice(0, 3).every((i) => i.disponivel)).toBe(true);
+    // Com Analytics habilitado, os 5 módulos disponíveis já preenchem os
+    // 5 slots inteiros — nenhum "Em breve" sobra na barra mobile.
+    expect(itens.every((i) => i.disponivel)).toBe(true);
+    expect(itens.map((i) => i.label)).toEqual(["Home", "Artistas", "Estúdio", "Analytics", "Shows"]);
   });
 });

@@ -10,6 +10,7 @@ import type {
   TipoProjeto, EstagioPipeline, TipoVersao, CategoriaComentario, Prioridade,
 } from "@/types/domain";
 import type { ShowDetalhado } from "@/types/shows";
+import type { MetricaDetalhada } from "@/types/analytics";
 import { normalizarStatusShow, parseRiderCamarim, parseRiderTecnico,
   riderCamarimTemConteudo, riderTecnicoTemConteudo } from "@/lib/shows";
 
@@ -49,6 +50,11 @@ interface ShowRow {
 interface MetricaRow {
   id: string; artista_id: string; faixa_id: string | null; plataforma: string;
   data: string; streams: number | string | null; receita: number | string | null;
+}
+// Join opcional `artistas(nome)`/`faixas(titulo)` — presente em getMetricas/getMetricasDoArtista.
+interface MetricaJoinRow extends MetricaRow {
+  artistas?: { nome: string } | null;
+  faixas?: { titulo: string } | null;
 }
 interface VinculoProjetoArtistaRow {
   projeto_id: string;
@@ -149,6 +155,14 @@ function mapMetrica(row: MetricaRow): Metrica {
     data: row.data,
     streams: row.streams != null ? Number(row.streams) : undefined,
     receita: row.receita != null ? Number(row.receita) : undefined,
+  };
+}
+
+function mapMetricaDetalhada(row: MetricaJoinRow): MetricaDetalhada {
+  return {
+    ...mapMetrica(row),
+    artistaNome: row.artistas?.nome,
+    faixaTitulo: row.faixas?.titulo,
   };
 }
 
@@ -441,13 +455,28 @@ export async function getShow(id: string): Promise<ShowDetalhado | null> {
   return data ? mapShow(data) : null;
 }
 
-export async function getMetricasDoArtista(artistaId: string): Promise<Metrica[]> {
+// Consolidado do selo (Analytics): todas as métricas visíveis ao usuário
+// (RLS: admin vê tudo, artista vê as próprias), com artista e faixa
+// resolvidos no join — a UI nunca precisa de uma segunda consulta por nome.
+export async function getMetricas(): Promise<MetricaDetalhada[]> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("metricas")
-    .select("*")
-    .eq("artista_id", artistaId)
-    .order("data", { ascending: false });
+    .select("*, artistas(nome), faixas(titulo)")
+    .order("data", { ascending: false })
+    .returns<MetricaJoinRow[]>();
   if (error) throw error;
-  return (data ?? []).map(mapMetrica);
+  return (data ?? []).map(mapMetricaDetalhada);
+}
+
+export async function getMetricasDoArtista(artistaId: string): Promise<MetricaDetalhada[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("metricas")
+    .select("*, faixas(titulo)")
+    .eq("artista_id", artistaId)
+    .order("data", { ascending: false })
+    .returns<MetricaJoinRow[]>();
+  if (error) throw error;
+  return (data ?? []).map(mapMetricaDetalhada);
 }

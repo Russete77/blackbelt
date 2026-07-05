@@ -137,8 +137,10 @@ function dataValida(ano: number, mes: number, dia: number): boolean {
   return d.getUTCFullYear() === ano && d.getUTCMonth() === mes - 1 && d.getUTCDate() === dia;
 }
 
-// Remove acentos/case para comparação forgiving de cabeçalhos.
-function normalizarTexto(t: string): string {
+// Remove acentos/case para comparação forgiving de cabeçalhos e, também,
+// de nomes de artista/faixa ao resolver as colunas mapeadas contra o banco
+// (ver app/(app)/analytics/actions.ts).
+export function normalizarTexto(t: string): string {
   return t
     .normalize("NFD")
     .replace(/\p{Diacritic}/gu, "")

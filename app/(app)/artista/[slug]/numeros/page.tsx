@@ -1,8 +1,16 @@
 import { notFound } from "next/navigation";
-import { BarChart3 } from "lucide-react";
+import { BarChart3, Headphones, Wallet } from "lucide-react";
 import { getArtista, getMetricasDoArtista } from "@/lib/db";
-import { formatarDataPura } from "@/lib/datas";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { StatTile } from "@/components/ui/StatTile";
+import { TabelaFaixas } from "@/components/analytics/TabelaFaixas";
+import { GraficoBarras, type SerieBarra } from "@/components/analytics/GraficoBarras";
+import { ImportarCSV } from "@/components/analytics/ImportarCSV";
+import { SincronizarYoutube } from "@/components/analytics/SincronizarYoutube";
+import {
+  totaisMetricas, porFaixa, porPlataforma, formatarReceita, formatarStreams, PALETA_CATEGORICA,
+} from "@/lib/metricas";
+import { youtubeConfigurado } from "@/lib/youtube";
 
 export default async function NumerosPage({
   params,
@@ -14,10 +22,22 @@ export default async function NumerosPage({
   if (!artista) return notFound();
 
   const metricas = await getMetricasDoArtista(artista.id);
+  const totais = totaisMetricas(metricas);
+  const linhasFaixas = porFaixa(metricas);
+  const linhasPlataforma = porPlataforma(metricas).map((l) => ({ rotulo: l.rotulo, streams: l.streams }));
+
+  // Uma série só (streams por plataforma do MESMO artista): a identidade
+  // categórica aqui é a posição no eixo X, não a cor — todas as barras usam
+  // o mesmo slot (regra de "barras nominais" da paleta de dataviz).
+  const serieUnica: SerieBarra[] = [{ chave: "streams", nome: "Streams", cor: PALETA_CATEGORICA[0] }];
 
   return (
-    <div>
-      <h2 className="mb-3 text-lg font-semibold">Números</h2>
+    <div className="flex flex-col gap-6">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <h2 className="text-lg font-semibold">Números</h2>
+        <ImportarCSV artistas={[{ id: artista.id, nome: artista.nome }]} artistaFixoId={artista.id} />
+      </div>
+
       {metricas.length === 0 ? (
         <EmptyState
           icon={BarChart3}
@@ -25,22 +45,27 @@ export default async function NumerosPage({
           hint="Streams e desempenho por plataforma aparecerão aqui assim que forem importados."
         />
       ) : (
-        <ul className="divide-y divide-line">
-          {metricas.map((m) => (
-            <li key={m.id} className="flex items-center justify-between gap-3 py-2.5 text-sm">
-              <span className="truncate">
-                {m.plataforma}{" "}
-                <span className="font-mono text-xs text-muted">
-                  · {formatarDataPura(m.data)}
-                </span>
-              </span>
-              <span className="shrink-0 font-mono text-xs text-muted">
-                {m.streams != null ? `${m.streams.toLocaleString("pt-BR")} streams` : "—"}
-              </span>
-            </li>
-          ))}
-        </ul>
+        <>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <StatTile icon={Headphones} label="Streams" value={formatarStreams(totais.streams)} />
+            <StatTile icon={Wallet} label="Receita" value={formatarReceita(totais.receita)} />
+          </div>
+
+          <div className="rounded-lg border border-line bg-surface p-4 md:p-5">
+            <h3 className="mb-3 text-sm font-semibold">Streams por plataforma</h3>
+            <GraficoBarras dados={linhasPlataforma} series={serieUnica} formatarValor={formatarStreams} altura={220} />
+          </div>
+
+          <div>
+            <h3 className="mb-3 text-sm font-semibold">Por faixa</h3>
+            <TabelaFaixas linhas={linhasFaixas} tituloVazio="Nenhuma faixa com métrica vinculada ainda." />
+          </div>
+        </>
       )}
+
+      <div className="border-t border-line pt-4">
+        <SincronizarYoutube configurado={youtubeConfigurado()} artistas={[]} artistaFixoId={artista.id} />
+      </div>
     </div>
   );
 }
