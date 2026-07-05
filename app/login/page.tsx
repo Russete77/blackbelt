@@ -7,12 +7,17 @@ export default async function LoginPage({
 }) {
   const { erro } = await searchParams;
   return (
-    <div className="min-h-screen grid place-items-center bg-bg text-fg p-4">
-      <div className="w-full max-w-sm">
-        <h1 className="text-2xl font-bold text-center mb-1">
-          BLACK <span className="text-accent">BELT</span> 360
+    <div className="relative grid min-h-screen place-items-center overflow-hidden bg-bg p-4 text-fg">
+      {/* brilho dourado sutil atrás do wordmark — atmosfera, não ruído */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute left-1/2 top-[18%] h-72 w-72 -translate-x-1/2 rounded-full bg-accent/10 blur-3xl"
+      />
+      <div className="relative w-full max-w-sm animate-fade-in-up">
+        <h1 className="mb-1 text-center font-display text-4xl uppercase tracking-tight">
+          BLACK <span className="text-accent">BELT</span> <span className="text-muted">360</span>
         </h1>
-        <p className="text-muted text-sm text-center mb-8">
+        <p className="mb-8 text-center text-sm text-muted">
           Acesso por convite. Informe seu e-mail para receber o link de entrada.
         </p>
         {erro === "auth" && (
@@ -20,7 +25,9 @@ export default async function LoginPage({
             O link de entrada expirou ou já foi usado. Peça um novo abaixo.
           </p>
         )}
-        <LoginForm />
+        <div className="rounded-lg border border-line bg-surface p-5 shadow-xl shadow-black/30">
+          <LoginForm />
+        </div>
       </div>
     </div>
   );
