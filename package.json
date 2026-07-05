@@ -10,7 +10,8 @@
     "lint": "eslint",
     "test": "vitest run",
     "test:watch": "vitest",
-    "seed": "node scripts/seed.mjs"
+    "seed": "node scripts/seed.mjs",
+    "seed:metricas": "node scripts/seed-metricas.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.0",

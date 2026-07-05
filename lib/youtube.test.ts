@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import { describe, it, expect, afterEach, vi } from "vitest";
 import { buscarViewCountYoutube, youtubeConfigurado } from "./youtube";
 
 const ORIGINAL_ENV = process.env.YOUTUBE_API_KEY;
