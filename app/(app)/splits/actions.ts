@@ -1,0 +1,106 @@
+"use server";
+// Server Action de splits por faixa (faixa_artistas) — participantes + %.
+// Usa o client de servidor com a sessão do usuário (RLS se aplica) — NUNCA
+// service-role aqui. Arquivo próprio (não app/(app)/actions.ts) pelo mesmo
+// motivo de app/(app)/analytics/actions.ts: módulo isolado, evita conflito
+// com trabalho paralelo em cima do actions.ts compartilhado.
+import { revalidatePath } from "next/cache";
+import { createClient } from "@/lib/supabase/server";
+import { caminhoSeguro } from "@/lib/forms";
+
+export interface EstadoSplits {
+  status: "idle" | "ok" | "error";
+  message?: string;
+  salvos?: number;
+  somaPercentual?: number;
+}
+
+interface ParticipanteEntrada {
+  artistaId?: unknown;
+  papel?: unknown;
+  percentual?: unknown;
+}
+
+interface ParticipanteValido {
+  artista_id: string;
+  papel: string | null;
+  percentual: number;
+}
+
+// Substitui (delete-then-insert) as linhas de faixa_artistas de uma faixa
+// pela lista enviada — mesmo padrão de "confirma o estado inteiro" que
+// vincularYoutube usa para o campo único, aqui para uma lista. Participantes
+// chega como JSON no FormData (mesmo truque de `mapeamento` em
+// importarMetricasCSV): um form nativo não carrega array estruturado.
+export async function salvarSplits(_estado: EstadoSplits, formData: FormData): Promise<EstadoSplits> {
+  const faixaId = String(formData.get("faixaId") ?? "").trim();
+  const caminho = caminhoSeguro(formData.get("caminho"));
+  if (!faixaId) return { status: "error", message: "Faixa inválida." };
+
+  let bruto: unknown;
+  try {
+    bruto = JSON.parse(String(formData.get("participantes") ?? "[]"));
+  } catch {
+    return { status: "error", message: "Lista de participantes inválida." };
+  }
+  if (!Array.isArray(bruto)) {
+    return { status: "error", message: "Lista de participantes inválida." };
+  }
+
+  const participantes: ParticipanteValido[] = [];
+  const idsVistos = new Set<string>();
+  for (const item of bruto as ParticipanteEntrada[]) {
+    const artistaId = String(item?.artistaId ?? "").trim();
+    if (!artistaId) return { status: "error", message: "Selecione um artista para cada participante." };
+    if (idsVistos.has(artistaId)) {
+      return { status: "error", message: "Um artista não pode aparecer duas vezes na mesma faixa." };
+    }
+    idsVistos.add(artistaId);
+
+    const percentual = Number(item?.percentual);
+    if (!Number.isFinite(percentual) || percentual < 0 || percentual > 100) {
+      return { status: "error", message: "O percentual de cada participante deve estar entre 0 e 100." };
+    }
+
+    const papelBruto = String(item?.papel ?? "").trim();
+    participantes.push({ artista_id: artistaId, papel: papelBruto || null, percentual });
+  }
+
+  const somaPercentual = Math.round(participantes.reduce((s, p) => s + p.percentual, 0) * 100) / 100;
+
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { status: "error", message: "Sessão expirada. Entre novamente." };
+
+  const { error: delError } = await supabase.from("faixa_artistas").delete().eq("faixa_id", faixaId);
+  if (delError) {
+    return { status: "error", message: "Não foi possível salvar os splits. Tente novamente." };
+  }
+
+  if (participantes.length > 0) {
+    const { error: insError } = await supabase.from("faixa_artistas").insert(
+      participantes.map((p) => ({
+        faixa_id: faixaId,
+        artista_id: p.artista_id,
+        papel: p.papel,
+        percentual: p.percentual,
+      })),
+    );
+    if (insError) {
+      return { status: "error", message: "Não foi possível salvar os splits. Tente novamente." };
+    }
+  }
+
+  revalidatePath(caminho);
+
+  const avisoSoma = participantes.length > 0 && Math.abs(somaPercentual - 100) > 0.01
+    ? ` — soma de ${somaPercentual}% (não fecha 100%)`
+    : "";
+
+  return {
+    status: "ok",
+    message: `${participantes.length} participante(s) salvo(s)${avisoSoma}.`,
+    salvos: participantes.length,
+    somaPercentual,
+  };
+}

@@ -1,5 +1,8 @@
 import { notFound } from "next/navigation";
-import { getFaixa, getVersoesDaFaixa, getComentariosDeVersoes, getSignedCoverUrl } from "@/lib/db";
+import {
+  getFaixa, getVersoesDaFaixa, getComentariosDeVersoes, getSignedCoverUrl,
+  getSplitsDaFaixa, getArtistas,
+} from "@/lib/db";
 import { createClient } from "@/lib/supabase/server";
 import { FaixaClient } from "@/components/faixa/FaixaClient";
 
@@ -21,6 +24,7 @@ export default async function FaixaPage({ params }: { params: Promise<{ id: stri
 
   const versoes = await getVersoesDaFaixa(faixa.id);
   const comentariosPorVersao = await getComentariosDeVersoes(versoes.map((v) => v.id));
+  const [splits, artistas] = await Promise.all([getSplitsDaFaixa(faixa.id), getArtistas()]);
 
   return (
     <FaixaClient
@@ -28,6 +32,8 @@ export default async function FaixaPage({ params }: { params: Promise<{ id: stri
       versoes={versoes}
       comentariosPorVersao={comentariosPorVersao}
       isAdmin={isAdmin}
+      splits={splits}
+      artistas={artistas.map((a) => ({ id: a.id, nome: a.nome }))}
     />
   );
 }

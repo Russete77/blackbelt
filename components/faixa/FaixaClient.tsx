@@ -8,12 +8,14 @@ import { UploadVersao } from "@/components/faixa/UploadVersao";
 import { CapaUploader } from "@/components/capa/CapaUploader";
 import { VincularYoutube } from "@/components/faixa/VincularYoutube";
 import { NovoComentario } from "@/components/faixa/NovoComentario";
+import { SplitsFaixa } from "@/components/faixa/SplitsFaixa";
 import { Button } from "@/components/ui/Button";
 import { Cover } from "@/components/ui/Cover";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { MessageSquarePlus, Music } from "lucide-react";
 import { labelEstagio } from "@/lib/labels";
 import type { Comentario, Faixa, VersaoFaixa } from "@/types/domain";
+import type { SplitFaixa } from "@/lib/db";
 
 interface FaixaClientProps {
   faixa: Faixa;
@@ -21,9 +23,13 @@ interface FaixaClientProps {
   comentariosPorVersao: Record<string, Comentario[]>;
   // Calculado no servidor (app_metadata.role do JWT) — mostra o botão de apagar.
   isAdmin?: boolean;
+  splits: SplitFaixa[];
+  artistas: { id: string; nome: string }[];
 }
 
-export function FaixaClient({ faixa, versoes, comentariosPorVersao, isAdmin = false }: FaixaClientProps) {
+export function FaixaClient({
+  faixa, versoes, comentariosPorVersao, isAdmin = false, splits, artistas,
+}: FaixaClientProps) {
   const ultimaVersao = versoes[versoes.length - 1];
   const { versaoAtual, tempoAtual } = usePlayer();
   // Tempo (s) capturado pelo clique na onda ou pelo playhead — abre o form.
@@ -61,6 +67,9 @@ export function FaixaClient({ faixa, versoes, comentariosPorVersao, isAdmin = fa
           className="mb-4"
         />
         <UploadVersao faixaId={faixa.id} />
+        <div className="mt-6">
+          <SplitsFaixa faixaId={faixa.id} artistas={artistas} participantesIniciais={splits} />
+        </div>
       </div>
     );
   }
@@ -122,6 +131,10 @@ export function FaixaClient({ faixa, versoes, comentariosPorVersao, isAdmin = fa
         </div>
       )}
       <ListaComentarios comentarios={comentarios} isAdmin={isAdmin} />
+
+      <div className="mt-6">
+        <SplitsFaixa faixaId={faixa.id} artistas={artistas} participantesIniciais={splits} />
+      </div>
     </div>
   );
 }
