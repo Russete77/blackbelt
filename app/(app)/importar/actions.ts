@@ -91,11 +91,16 @@ export async function conectarDeezer(_estado: EstadoAcao, formData: FormData): P
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { status: "error", message: "Sessão expirada. Entre novamente." };
 
-  const { error } = await supabase
+  const { data: atualizadas, error } = await supabase
     .from("artistas")
     .update({ deezer_artist_id: deezerArtistId })
-    .eq("id", artistaId);
-  if (error) return { status: "error", message: "Não foi possível conectar o Deezer. Tente novamente." };
+    .eq("id", artistaId)
+    .select("id");
+  if (error || !atualizadas || atualizadas.length === 0) {
+    // RLS filtrando 0 linhas também é falha — sem o .select() a action
+    // respondia "conectado" sem nada ter mudado.
+    return { status: "error", message: "Não foi possível conectar o Deezer. Tente novamente." };
+  }
 
   revalidatePath(caminho);
   return { status: "ok", message: "Deezer conectado." };
@@ -198,20 +203,25 @@ export async function conectarCanalYoutube(_estado: EstadoAcao, formData: FormDa
     return { status: "error", message: "Configure YOUTUBE_API_KEY no ambiente para conectar um canal." };
   }
 
+  // Sessão ANTES de gastar quota da YouTube API (resolver o canal custa
+  // unidades de search — anônimo não deve conseguir queimar a cota do selo).
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { status: "error", message: "Sessão expirada. Entre novamente." };
+
   const canal = await resolverCanalYoutube(handleOuUrl);
   if (!canal) {
     return { status: "error", message: "Canal não encontrado. Confira o @handle ou o link e tente novamente." };
   }
 
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { status: "error", message: "Sessão expirada. Entre novamente." };
-
-  const { error } = await supabase
+  const { data: atualizadas, error } = await supabase
     .from("artistas")
     .update({ youtube_channel_id: canal.channelId })
-    .eq("id", artistaId);
-  if (error) return { status: "error", message: "Não foi possível conectar o canal. Tente novamente." };
+    .eq("id", artistaId)
+    .select("id");
+  if (error || !atualizadas || atualizadas.length === 0) {
+    return { status: "error", message: "Não foi possível conectar o canal. Tente novamente." };
+  }
 
   revalidatePath(caminho);
   return { status: "ok", message: `Canal "${canal.titulo}" conectado.` };

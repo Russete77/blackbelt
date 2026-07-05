@@ -207,11 +207,14 @@ export async function vincularYoutube(_estado: EstadoAcao, formData: FormData): 
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { status: "error", message: "Sessão expirada. Entre novamente." };
 
-  const { error } = await supabase
+  const { data: atualizadas, error } = await supabase
     .from("faixas")
     .update({ youtube_video_id: videoId })
-    .eq("id", faixaId);
-  if (error) {
+    .eq("id", faixaId)
+    .select("id");
+  if (error || !atualizadas || atualizadas.length === 0) {
+    // RLS filtrando 0 linhas também é falha — sem o .select() a action
+    // respondia sucesso sem nada ter mudado.
     return { status: "error", message: "Não foi possível salvar o link do YouTube. Tente novamente." };
   }
 
@@ -245,8 +248,15 @@ export async function vincularPlataforma(_estado: EstadoAcao, formData: FormData
   const rotulo = NOMES_PLATAFORMA_VINCULAVEL[plataforma];
   if (!bruto) return { status: "error", message: `Cole o link do ${rotulo} antes de salvar.` };
 
+  // Sessão ANTES de qualquer fetch externo: o resolver de link curto custa
+  // uma requisição de servidor e não deve rodar para anônimos.
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { status: "error", message: "Sessão expirada. Entre novamente." };
+
   let trackId = plataforma === "spotify" ? extrairSpotifyTrackId(bruto) : extrairDeezerTrackId(bruto);
-  if (!trackId && plataforma === "deezer" && /deezer\.page\.link/i.test(bruto)) {
+  if (!trackId && plataforma === "deezer") {
+    // resolverDeezerLinkCurto valida host/protocolo por conta própria.
     trackId = await resolverDeezerLinkCurto(bruto);
   }
   if (!trackId) {
@@ -258,13 +268,15 @@ export async function vincularPlataforma(_estado: EstadoAcao, formData: FormData
     };
   }
 
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { status: "error", message: "Sessão expirada. Entre novamente." };
-
   const coluna = plataforma === "spotify" ? "spotify_track_id" : "deezer_track_id";
-  const { error } = await supabase.from("faixas").update({ [coluna]: trackId }).eq("id", faixaId);
-  if (error) {
+  const { data: atualizadas, error } = await supabase
+    .from("faixas")
+    .update({ [coluna]: trackId })
+    .eq("id", faixaId)
+    .select("id");
+  if (error || !atualizadas || atualizadas.length === 0) {
+    // RLS filtrando 0 linhas também é falha — sem o .select() a action
+    // respondia sucesso sem nada ter mudado.
     return { status: "error", message: `Não foi possível salvar o link do ${rotulo}. Tente novamente.` };
   }
 

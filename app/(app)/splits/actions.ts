@@ -72,23 +72,35 @@ export async function salvarSplits(_estado: EstadoSplits, formData: FormData): P
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { status: "error", message: "Sessão expirada. Entre novamente." };
 
-  const { error: delError } = await supabase.from("faixa_artistas").delete().eq("faixa_id", faixaId);
-  if (delError) {
-    return { status: "error", message: "Não foi possível salvar os splits. Tente novamente." };
-  }
-
+  // Upsert primeiro, delete dos removidos depois — a ordem inversa
+  // (delete-then-insert) perdia todos os splits se o insert falhasse
+  // no meio, e quebrava quando o delete era filtrado pela RLS.
   if (participantes.length > 0) {
-    const { error: insError } = await supabase.from("faixa_artistas").insert(
+    const { error: upsertError } = await supabase.from("faixa_artistas").upsert(
       participantes.map((p) => ({
         faixa_id: faixaId,
         artista_id: p.artista_id,
         papel: p.papel,
         percentual: p.percentual,
       })),
+      { onConflict: "faixa_id,artista_id" },
     );
-    if (insError) {
+    if (upsertError) {
       return { status: "error", message: "Não foi possível salvar os splits. Tente novamente." };
     }
+  }
+
+  let removar = supabase.from("faixa_artistas").delete().eq("faixa_id", faixaId);
+  if (participantes.length > 0) {
+    removar = removar.not(
+      "artista_id",
+      "in",
+      `(${participantes.map((p) => p.artista_id).join(",")})`,
+    );
+  }
+  const { error: delError } = await removar;
+  if (delError) {
+    return { status: "error", message: "Não foi possível salvar os splits. Tente novamente." };
   }
 
   revalidatePath(caminho);

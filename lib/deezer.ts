@@ -142,8 +142,19 @@ export async function catalogoDeezer(deezerArtistId: string): Promise<FaixaCatal
 // então seguimos o redirect por uma chamada de rede best-effort — falha vira
 // null (mensagem amigável na Server Action), nunca lança.
 export async function resolverDeezerLinkCurto(url: string): Promise<string | null> {
+  // Só resolve link curto REAL do Deezer: host exato + https. Sem isto o
+  // servidor viraria proxy de GET para URL arbitrária do usuário (SSRF —
+  // ex.: rede interna/metadata endpoint com "deezer.page.link" na query).
+  let alvo: URL;
   try {
-    const resposta = await fetch(url, { redirect: "follow" });
+    alvo = new URL(url);
+  } catch {
+    return null;
+  }
+  if (alvo.protocol !== "https:" || alvo.hostname !== "deezer.page.link") return null;
+
+  try {
+    const resposta = await fetch(alvo, { redirect: "follow", signal: AbortSignal.timeout(5000) });
     const final = resposta.url || url;
     return extrairDeezerTrackId(final);
   } catch (err) {
