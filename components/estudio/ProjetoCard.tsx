@@ -3,7 +3,6 @@ import { Disc3, Music } from "lucide-react";
 import { Card, CardBody } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Cover } from "@/components/ui/Cover";
-import { NovaFaixaForm } from "@/components/estudio/NovaFaixaForm";
 import { CapaUploader } from "@/components/capa/CapaUploader";
 import { labelEstagio, labelTipoProjeto } from "@/lib/labels";
 import type { Faixa, Projeto } from "@/types/domain";
@@ -42,8 +41,10 @@ export function ProjetoCard({ projeto, faixas }: { projeto: Projeto; faixas: Fai
             </li>
           ))}
         </ul>
+        {/* "Nova faixa" por card foi removido: a única forma de subir música
+            agora é "＋ Subir música" no cabeçalho (nome + áudio + projeto
+            opcional em um passo só). Este card só mantém a capa. */}
         <div className="mt-3 flex flex-wrap items-center gap-3">
-          <NovaFaixaForm projetoId={projeto.id} />
           <CapaUploader tipo="projeto" id={projeto.id} rotulo="Capa" />
         </div>
       </CardBody>

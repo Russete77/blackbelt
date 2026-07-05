@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { Disc3 } from "lucide-react";
 import { ProjetoCard } from "@/components/estudio/ProjetoCard";
+import { SubirMusica } from "@/components/estudio/SubirMusica";
 import { NovoProjetoForm } from "@/components/artista/NovoProjetoForm";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { getArtista, getProjetosDoArtista, getFaixasDosProjetos, getSignedCoverUrl } from "@/lib/db";
@@ -29,15 +30,18 @@ export default async function ArtistaProjetosPage({
     <div>
       <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
         <h2 className="text-lg font-semibold">Projetos e faixas</h2>
-        <NovoProjetoForm artistaId={artista.id} />
+        <div className="flex flex-wrap items-center gap-2">
+          <SubirMusica artistaId={artista.id} artistaNome={artista.nome} projetos={projetos} />
+          <NovoProjetoForm artistaId={artista.id} />
+        </div>
       </div>
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         {projetosComFaixas.length === 0 && (
           <EmptyState
             className="md:col-span-2 xl:col-span-3"
             icon={Disc3}
-            title={`Nenhum projeto cadastrado ainda para ${artista.nome}.`}
-            hint="Crie o primeiro projeto (single, EP ou álbum) para começar a subir faixas."
+            title={`Nenhuma música cadastrada ainda para ${artista.nome}.`}
+            hint="Clique em ＋ Subir música para enviar sua primeira faixa — o projeto é opcional."
           />
         )}
         {projetosComFaixas.map(({ projeto, faixas }, i) => (
