@@ -54,7 +54,16 @@ export default async function PrevisaoPage({
   // BRL pela cotação do dia ANTES de agregar (ver lib/metricas.ts).
   const metricas = converterReceitaParaBRL(metricasBrutas, cotacao.brl);
 
-  const serieMensal = porMes(metricas);
+  // As views do YouTube são um SNAPSHOT cumulativo (o total de views até hoje,
+  // gravado todo na data da sincronização), não um fluxo mensal. Incluí-las na
+  // série mensal faz o último mês saltar de alguns milhares para o total
+  // acumulado (bilhões) e a projeção explodir num "hockey-stick" sem sentido.
+  // Por isso a tendência/projeção usa SÓ métricas de fluxo mensal real
+  // (planilha/Spotify) — o total acumulado do YouTube vive no Analytics.
+  const PLATAFORMAS_SNAPSHOT = new Set(["youtube"]);
+  const metricasFluxo = metricas.filter((m) => !PLATAFORMAS_SNAPSHOT.has(m.plataforma));
+
+  const serieMensal = porMes(metricasFluxo);
   const serieStreams: PontoMensal[] = serieMensal.map((l) => ({ chave: l.chave, rotulo: l.rotulo, valor: l.streams }));
   const serieReceita: PontoMensal[] = serieMensal.map((l) => ({ chave: l.chave, rotulo: l.rotulo, valor: l.receita }));
 
@@ -105,7 +114,8 @@ export default async function PrevisaoPage({
             <div className="rounded-lg border border-line bg-surface p-4 md:p-5">
               <h2 className="mb-1 text-sm font-semibold">Streams — histórico e projeção</h2>
               <p className="mb-3 text-xs text-muted">
-                Linha sólida: real. Linha tracejada: projeção para os próximos {MESES_PROJETADOS} meses.
+                Fluxo mensal (não inclui o total acumulado do YouTube). Linha sólida: real. Tracejada:
+                projeção dos próximos {MESES_PROJETADOS} meses.
               </p>
               <GraficoTendencia dados={tendenciaStreams} formato="streams" />
             </div>
