@@ -56,7 +56,7 @@ export interface LinhaFaixaSplit {
   chave: string;
   rotulo: string;
   papel: string | null;
-  percentual: number;
+  percentual: number | null;
   streams: number | null;
   receita: number | null;
   receitaEstimada: boolean;

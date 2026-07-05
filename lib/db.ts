@@ -705,7 +705,7 @@ export interface FaixaComSplit {
   id: string;
   titulo: string;
   papel: string | null;
-  percentual: number;
+  percentual: number | null;
   streams: number | null;
   receita: number | null;
   // Streams/receita real (já em BRL) agregados por plataforma — base da
@@ -777,6 +777,68 @@ export async function getFaixasComSplitDoArtista(artistaId: string, taxaBrl: num
       titulo: v.faixas?.titulo ?? v.faixa_id,
       papel: v.papel,
       percentual: Number(v.percentual),
+      streams: agr?.temMetrica ? agr.streams : null,
+      receita: agr?.temMetrica ? agr.receita : null,
+      streamsPorPlataforma: agr?.streamsPorPlataforma ?? {},
+      receitaPorPlataforma: agr?.receitaPorPlataforma ?? {},
+    };
+  });
+}
+
+// Como getFaixasComSplitDoArtista, mas parte de TODAS as faixas do artista
+// (via seus projetos — inclui footprint/feats), não só as que têm split
+// cadastrado. O percentual vem do split quando existir; senão é null e o
+// "recebimento" fica "—" (a faixa e seus números continuam aparecendo).
+export async function getFaixasDoArtistaComNumeros(artistaId: string, taxaBrl: number): Promise<FaixaComSplit[]> {
+  const faixas = await getFaixasDoArtista(artistaId);
+  if (faixas.length === 0) return [];
+  const faixaIds = faixas.map((f) => f.id);
+
+  const supabase = await createClient();
+  const [splitsRes, metricasRes] = await Promise.all([
+    supabase
+      .from("faixa_artistas")
+      .select("faixa_id, papel, percentual")
+      .eq("artista_id", artistaId)
+      .in("faixa_id", faixaIds)
+      .returns<{ faixa_id: string; papel: string | null; percentual: number | string }[]>(),
+    supabase
+      .from("metricas")
+      .select("faixa_id, plataforma, streams, receita, moeda")
+      .in("faixa_id", faixaIds)
+      .returns<{ faixa_id: string | null; plataforma: string; streams: number | string | null; receita: number | string | null; moeda?: Moeda | null }[]>(),
+  ]);
+  if (splitsRes.error) throw splitsRes.error;
+  if (metricasRes.error) throw metricasRes.error;
+
+  const splitPorFaixa = new Map<string, { papel: string | null; percentual: number }>();
+  for (const s of splitsRes.data ?? []) splitPorFaixa.set(s.faixa_id, { papel: s.papel, percentual: Number(s.percentual) });
+
+  const agregado = new Map<string, {
+    streams: number; receita: number; temMetrica: boolean;
+    streamsPorPlataforma: Record<string, number>; receitaPorPlataforma: Record<string, number>;
+  }>();
+  for (const m of metricasRes.data ?? []) {
+    if (!m.faixa_id) continue;
+    const a = agregado.get(m.faixa_id)
+      ?? { streams: 0, receita: 0, temMetrica: false, streamsPorPlataforma: {}, receitaPorPlataforma: {} };
+    const receitaBruta = m.receita != null ? Number(m.receita) : 0;
+    const receitaBRL = (m.moeda ?? "BRL") === "USD" ? receitaBruta * taxaBrl : receitaBruta;
+    const streamsNum = m.streams != null ? Number(m.streams) : 0;
+    a.streams += streamsNum; a.receita += receitaBRL; a.temMetrica = true;
+    a.streamsPorPlataforma[m.plataforma] = (a.streamsPorPlataforma[m.plataforma] ?? 0) + streamsNum;
+    a.receitaPorPlataforma[m.plataforma] = (a.receitaPorPlataforma[m.plataforma] ?? 0) + receitaBRL;
+    agregado.set(m.faixa_id, a);
+  }
+
+  return faixas.map((f) => {
+    const agr = agregado.get(f.id);
+    const split = splitPorFaixa.get(f.id);
+    return {
+      id: f.id,
+      titulo: f.titulo,
+      papel: split?.papel ?? null,
+      percentual: split?.percentual ?? null,
       streams: agr?.temMetrica ? agr.streams : null,
       receita: agr?.temMetrica ? agr.receita : null,
       streamsPorPlataforma: agr?.streamsPorPlataforma ?? {},

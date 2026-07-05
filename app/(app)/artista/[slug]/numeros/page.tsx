@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { BarChart3, Headphones, Wallet, HandCoins } from "lucide-react";
-import { getArtista, getMetricasDoArtista, getFaixasComSplitDoArtista } from "@/lib/db";
+import { getArtista, getMetricasDoArtista, getFaixasDoArtistaComNumeros } from "@/lib/db";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { StatTile } from "@/components/ui/StatTile";
 import { TabelaFaixasSplit } from "@/components/analytics/TabelaFaixasSplit";
@@ -35,7 +35,7 @@ export default async function NumerosPage({
   const cotacao = await cotacaoDolar();
   const [metricasBrutas, faixasComSplit] = await Promise.all([
     getMetricasDoArtista(artista.id),
-    getFaixasComSplitDoArtista(artista.id, cotacao.brl),
+    getFaixasDoArtistaComNumeros(artista.id, cotacao.brl),
   ]);
   // Receita convertida pra BRL pela cotação do dia ANTES de agregar — ver
   // mesmo racional em app/(app)/analytics/page.tsx e lib/metricas.ts.

@@ -67,7 +67,7 @@ export function TabelaFaixasSplit({
                   )}
                 </td>
                 <td className="px-4 py-2.5 text-right font-mono text-xs text-muted">
-                  {l.percentual}%
+                  {l.percentual != null ? `${l.percentual}%` : "—"}
                 </td>
                 <td className="px-4 py-2.5 text-right font-mono text-xs font-semibold text-accent">
                   {l.recebimento != null ? formatarValorDual(l.recebimento, "BRL", taxaBrl) : "—"}

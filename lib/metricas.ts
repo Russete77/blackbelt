@@ -229,8 +229,8 @@ export function receitaComEstimativa(
 // Recebimento do artista numa faixa = receita da faixa (real ou estimada) ×
 // seu percentual de split. null quando não há nenhuma receita/estimativa
 // para basear o cálculo (faixa sem métrica nenhuma ainda).
-export function recebimentoArtista(receita: number | null, percentual: number): number | null {
-  if (receita == null) return null;
+export function recebimentoArtista(receita: number | null, percentual: number | null): number | null {
+  if (receita == null || percentual == null) return null;
   return receita * (percentual / 100);
 }
 
