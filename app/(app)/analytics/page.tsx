@@ -86,6 +86,12 @@ export default async function AnalyticsPage({
   // receita não conta.
   const faixasMonetizadas = linhasFaixas.filter((l) => (l.receita ?? 0) > 0).length;
 
+  // Total da RECEITA (StatTile de cima) deve incluir a ESTIMATIVA por
+  // plataforma, igual à tabela "Por faixa" — senão o topo não muda quando se
+  // ajustam as taxas. Soma o total de cada faixa (real + estimado).
+  const receitaTotalEstimada = linhasFaixas.reduce((s, l) => s + (l.receita ?? 0), 0);
+  const totalTemEstimativa = linhasFaixas.some((l) => l.receitaEstimada);
+
   return (
     <div className="p-4 md:p-6">
       <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
@@ -122,7 +128,7 @@ export default async function AnalyticsPage({
         <div className="flex flex-col gap-6">
           <div className="grid gap-4 sm:grid-cols-3">
             <StatTile icon={Headphones} label="Streams" value={formatarStreams(totais.streams)} />
-            <StatTile icon={Wallet} label="Receita" value={formatarValorDual(totais.receita, "BRL", cotacao.brl)} />
+            <StatTile icon={Wallet} label="Receita" value={formatarValorDual(receitaTotalEstimada, "BRL", cotacao.brl) + (totalTemEstimativa ? " · est." : "")} />
             <StatTile icon={Music2} label="Faixas monetizadas" value={String(faixasMonetizadas)} />
           </div>
 
