@@ -1,11 +1,11 @@
 import Link from "next/link";
-import { Disc3, Music, Eye } from "lucide-react";
+import { Disc3, Music, Video } from "lucide-react";
 import { Card, CardBody } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Cover } from "@/components/ui/Cover";
 import { CapaUploader } from "@/components/capa/CapaUploader";
 import { labelEstagio, labelTipoProjeto } from "@/lib/labels";
-import { capaPublicaOuThumbnail } from "@/lib/faixa";
+import { capaPublicaOuThumbnail, isProjetoFootprint } from "@/lib/faixa";
 import { formatarStreams } from "@/lib/metricas";
 import type { Faixa, Projeto } from "@/types/domain";
 
@@ -21,6 +21,14 @@ export function ProjetoCard({
   const faixasEstudio = faixas.filter((f) => f.origem !== "footprint");
   const faixasFootprint = faixas.filter((f) => f.origem === "footprint");
 
+  // Projeto "guarda-chuva" de importação (Catálogo, Canal YouTube,
+  // Aparições/Footprint) ou projeto cujas faixas são todas footprint: nada
+  // aqui é produzido pelo selo, então o badge de estágio de pipeline
+  // (Ideia/Mixagem/...) não tem significado nenhum — mostraria sempre
+  // "Ideia" (valor padrão da coluna) sem qualquer relação com a realidade.
+  const projetoEhFootprint =
+    isProjetoFootprint(projeto.nome) || (faixasEstudio.length === 0 && faixasFootprint.length > 0);
+
   return (
     <Card>
       <CardBody>
@@ -35,7 +43,9 @@ export function ProjetoCard({
               </p>
             </div>
           </div>
-          <Badge tone="accent">{labelEstagio(projeto.statusGeral)}</Badge>
+          {projetoEhFootprint
+            ? <Badge tone="neutral">Footprint</Badge>
+            : <Badge tone="accent">{labelEstagio(projeto.statusGeral)}</Badge>}
         </div>
 
         {faixas.length === 0 && (
@@ -59,30 +69,32 @@ export function ProjetoCard({
           </ul>
         )}
 
-        {/* Faixas footprint (feat/lançamento em canal de terceiro) viram
-            cards com cover + views, não uma linha de texto com estágio
-            "Ideia" — essa música já está lançada, não em produção aqui. */}
+        {/* Faixas footprint (feat/lançamento em canal de terceiro) viram um
+            grid estilo "release" — cover proeminente + título + views, não
+            uma linha de texto com estágio "Ideia": essa música já está
+            lançada, não em produção aqui. */}
         {faixasFootprint.length > 0 && (
-          <div className={`grid grid-cols-2 gap-2 sm:grid-cols-3 ${faixasEstudio.length > 0 ? "mt-3" : "mt-4"}`}>
+          <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {faixasFootprint.map((f) => (
               <Link
                 key={f.id}
                 href={`/faixa/${f.id}`}
-                className="group flex items-center gap-2 rounded-md border border-line p-2 transition-colors duration-200 hover:border-accent/50"
+                title={f.titulo}
+                className="group flex flex-col overflow-hidden rounded-lg border border-line bg-surface2/40 transition-all duration-200 hover:-translate-y-0.5 hover:border-accent/50 hover:shadow-lg hover:shadow-black/20"
               >
                 <Cover
                   src={capaPublicaOuThumbnail(f)}
                   alt={`Capa de ${f.titulo}`}
                   icon={Music}
-                  size="sm"
-                  className="h-10 w-10"
+                  size="fill"
+                  className="rounded-none"
                 />
-                <div className="min-w-0">
-                  <p className="truncate text-xs font-medium transition-colors duration-200 group-hover:text-accent">
+                <div className="flex flex-1 flex-col gap-1.5 p-3">
+                  <p className="line-clamp-2 text-sm font-medium leading-snug transition-colors duration-200 group-hover:text-accent">
                     {f.titulo}
                   </p>
-                  <p className="flex items-center gap-1 font-mono text-[11px] text-muted">
-                    <Eye className="h-3 w-3 shrink-0" aria-hidden />
+                  <p className="mt-auto flex items-center gap-1.5 font-mono text-xs text-muted">
+                    <Video className="h-3.5 w-3.5 shrink-0" aria-hidden />
                     {viewsPorFaixa[f.id] != null ? formatarStreams(viewsPorFaixa[f.id]) : "—"}
                   </p>
                 </div>

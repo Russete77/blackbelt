@@ -22,3 +22,15 @@ export function capaPublicaOuThumbnail(f: { capaUrl?: string; youtubeVideoId?: s
   if (f.youtubeVideoId) return youtubeThumbnailUrl(f.youtubeVideoId);
   return undefined;
 }
+
+// Nomes fixos dos projetos "guarda-chuva" criados pelo fluxo de importação
+// (ver app/(app)/importar/actions.ts#garantirProjeto) — nenhum deles é
+// produzido pelo selo, então statusGeral (sempre "ideia" no insert, já que a
+// coluna não é preenchida na importação) não tem nenhum significado de
+// pipeline pra eles. `isProjetoFootprint` decide quando ESCONDER o badge de
+// estágio de produção no card do projeto (ver ProjetoCard).
+const NOMES_PROJETO_FOOTPRINT = ["Aparições/Footprint", "Catálogo", "Canal YouTube"];
+
+export function isProjetoFootprint(nome: string): boolean {
+  return NOMES_PROJETO_FOOTPRINT.includes(nome);
+}

@@ -5,6 +5,10 @@ const SIZES = {
   sm: "h-12 w-12",
   md: "h-16 w-16",
   lg: "h-20 w-20",
+  // Ocupa toda a largura do container mantendo proporção quadrada — usado em
+  // grades estilo "release" (ver faixas footprint em ProjetoCard) onde a capa
+  // precisa ser proeminente em vez de um ícone pequeno ao lado do texto.
+  fill: "aspect-square w-full",
 } as const;
 
 // Arte quadrada (capa de faixa/projeto) com fallback em ícone — irmã do
