@@ -22,6 +22,7 @@ import { normalizarStatusShow, parseRiderCamarim, parseRiderTecnico,
 interface ArtistaRow {
   id: string; nome: string; slug: string;
   bio: string | null; foto_url: string | null; capa_url: string | null;
+  deezer_artist_id?: string | null; youtube_channel_id?: string | null;
 }
 interface ProjetoRow {
   id: string; nome: string; tipo: TipoProjeto; status_geral: EstagioPipeline; capa_url: string | null;
@@ -74,6 +75,8 @@ function mapArtista(row: ArtistaRow): Artista {
     bio: row.bio ?? undefined,
     fotoUrl: row.foto_url ?? undefined,
     capaUrl: row.capa_url ?? undefined,
+    deezerArtistId: row.deezer_artist_id ?? undefined,
+    youtubeChannelId: row.youtube_channel_id ?? undefined,
   };
 }
 

@@ -14,6 +14,9 @@ export interface Usuario {
 // A "pasta" do artista — eixo central da navegação (ver spec artista-cêntrica).
 export interface Artista {
   id: string; nome: string; slug: string; bio?: string; fotoUrl?: string; capaUrl?: string;
+  // IDs externos para importar catálogo/canal sem colar link por link (ver
+  // app/(app)/importar): Deezer (catálogo, keyless) e YouTube (canal próprio).
+  deezerArtistId?: string; youtubeChannelId?: string;
 }
 export interface Projeto {
   id: string; nome: string; tipo: TipoProjeto;
