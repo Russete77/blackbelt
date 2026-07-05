@@ -148,6 +148,8 @@ export async function importarCatalogoDeezer(
 
   let criadas = 0;
   let existentes = 0;
+  let erros = 0;
+  let ultimoErro = "";
   for (const faixa of faixasCatalogo) {
     const chave = faixa.titulo.trim().toLowerCase();
     if (titulosExistentes.has(chave)) { existentes++; continue; }
@@ -156,17 +158,20 @@ export async function importarCatalogoDeezer(
       projeto_id: projetoId,
       titulo: faixa.titulo,
       capa_url: faixa.coverUrl ?? null,
-      deezer_track_id: faixa.deezerTrackId,
     });
-    if (error) { existentes++; continue; }
+    // Erro de insert NÃO é "já existente" — reporta de verdade (não mascara).
+    if (error) { erros++; ultimoErro = error.message; continue; }
     titulosExistentes.add(chave);
     criadas++;
   }
 
   revalidatePath(caminho);
   return {
-    status: "ok",
-    message: `${criadas} faixa(s) importada(s)${existentes > 0 ? `, ${existentes} já existente(s)` : ""}.`,
+    status: erros > 0 && criadas === 0 ? "error" : "ok",
+    message:
+      `${criadas} faixa(s) importada(s)` +
+      (existentes > 0 ? `, ${existentes} já existente(s)` : "") +
+      (erros > 0 ? `, ${erros} com erro (${ultimoErro})` : "") + ".",
     criadas,
     existentes,
   };
