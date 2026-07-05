@@ -2,7 +2,7 @@
 // selo de terceiro): cover + players embutidos ("só escolher e ouvir") +
 // números por plataforma + Participantes & Split. Sem UI de produção nenhuma
 // (sem versões/beat/mix/comentário) — essa música não é produzida por nós.
-import { Music, Eye } from "lucide-react";
+import { Music } from "lucide-react";
 import { Cover } from "@/components/ui/Cover";
 import { Badge } from "@/components/ui/Badge";
 import { StatTile } from "@/components/ui/StatTile";
@@ -12,7 +12,7 @@ import { PlayersTabs } from "@/components/faixa/PlayersTabs";
 import { SplitsFaixa } from "@/components/faixa/SplitsFaixa";
 import { youtubeThumbnailUrl } from "@/lib/faixa";
 import { formatarStreams } from "@/lib/metricas";
-import { labelPlataforma } from "@/lib/labels";
+import { labelPlataforma, iconePlataforma } from "@/lib/labels";
 import type { Faixa } from "@/types/domain";
 import type { SplitFaixa } from "@/lib/db";
 
@@ -67,7 +67,7 @@ export function FootprintView({
             {metricasPorPlataforma.map((m) => (
               <StatTile
                 key={m.plataforma}
-                icon={Eye}
+                icon={iconePlataforma(m.plataforma)}
                 label={labelPlataforma(m.plataforma)}
                 value={formatarStreams(m.streams)}
               />

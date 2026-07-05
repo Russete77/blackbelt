@@ -1,3 +1,4 @@
+import { Video, Music2, MonitorPlay, type LucideIcon } from "lucide-react";
 import type { EstagioPipeline, TipoProjeto, TipoVersao, Prioridade } from "@/types/domain";
 
 export const labelEstagio = (e: EstagioPipeline): string =>
@@ -21,3 +22,13 @@ const NOMES_PLATAFORMA: Record<string, string> = {
 };
 export const labelPlataforma = (p: string): string =>
   NOMES_PLATAFORMA[p.toLowerCase()] ?? (p.charAt(0).toUpperCase() + p.slice(1));
+
+// Ícone por plataforma para os StatTiles de "Números" (FootprintView) — só
+// ícones genéricos do lucide (nunca logo/marca): Video para vídeo (YouTube),
+// Music2 para serviços de áudio, MonitorPlay como fallback neutro pra
+// qualquer plataforma ainda não mapeada (ex.: vinda de planilha importada).
+const ICONES_PLATAFORMA: Record<string, LucideIcon> = {
+  youtube: Video, tiktok: Video,
+  spotify: Music2, deezer: Music2, apple: Music2,
+};
+export const iconePlataforma = (p: string): LucideIcon => ICONES_PLATAFORMA[p.toLowerCase()] ?? MonitorPlay;
