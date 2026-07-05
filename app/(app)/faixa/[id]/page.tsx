@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { getFaixa, getVersoesDaFaixa, getComentariosDaVersao, getSignedCoverUrl } from "@/lib/db";
+import { createClient } from "@/lib/supabase/server";
 import { FaixaClient } from "@/components/faixa/FaixaClient";
 import type { Comentario } from "@/types/domain";
 
@@ -7,6 +8,12 @@ export default async function FaixaPage({ params }: { params: Promise<{ id: stri
   const { id } = await params;
   const faixa = await getFaixa(id);
   if (!faixa) return notFound();
+
+  // Admin = app_metadata.role no JWT (assinado pelo Supabase) — decide se os
+  // controles de apagar comentário aparecem. A RLS continua sendo a barreira real.
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  const isAdmin = user?.app_metadata?.role === "admin";
 
   // Resolve o caminho da capa (bucket privado) para uma signed URL exibível.
   if (faixa.capaUrl) {
@@ -21,6 +28,11 @@ export default async function FaixaPage({ params }: { params: Promise<{ id: stri
   });
 
   return (
-    <FaixaClient faixa={faixa} versoes={versoes} comentariosPorVersao={comentariosPorVersao} />
+    <FaixaClient
+      faixa={faixa}
+      versoes={versoes}
+      comentariosPorVersao={comentariosPorVersao}
+      isAdmin={isAdmin}
+    />
   );
 }

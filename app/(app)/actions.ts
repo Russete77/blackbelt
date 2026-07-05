@@ -11,6 +11,8 @@ export interface EstadoAcao {
 }
 
 const TIPOS_PROJETO = ["single", "ep", "album", "feat"] as const;
+const CATEGORIAS_COMENTARIO = ["beat", "mix", "master", "letra", "geral"] as const;
+const PRIORIDADES_COMENTARIO = ["alta", "media", "baixa"] as const;
 
 // Sanitiza o caminho de revalidação vindo do form (só caminhos internos).
 function caminhoSeguro(bruto: FormDataEntryValue | null): string {
@@ -75,4 +77,89 @@ export async function criarFaixa(_estado: EstadoAcao, formData: FormData): Promi
 
   revalidatePath(caminho);
   return { status: "ok", message: "Faixa criada." };
+}
+
+export async function editarComentario(_estado: EstadoAcao, formData: FormData): Promise<EstadoAcao> {
+  const id = String(formData.get("id") ?? "").trim();
+  const texto = String(formData.get("texto") ?? "").trim();
+  const categoriaBruta = String(formData.get("categoria") ?? "");
+  const prioridadeBruta = String(formData.get("prioridade") ?? "");
+  const caminho = caminhoSeguro(formData.get("caminho"));
+
+  if (!id) return { status: "error", message: "Comentário inválido." };
+  if (!texto) return { status: "error", message: "O comentário não pode ficar vazio." };
+  if (!(CATEGORIAS_COMENTARIO as readonly string[]).includes(categoriaBruta)) {
+    return { status: "error", message: "Categoria inválida." };
+  }
+  if (!(PRIORIDADES_COMENTARIO as readonly string[]).includes(prioridadeBruta)) {
+    return { status: "error", message: "Prioridade inválida." };
+  }
+
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { status: "error", message: "Sessão expirada. Entre novamente." };
+
+  const { error } = await supabase
+    .from("comentarios")
+    .update({ texto, categoria: categoriaBruta, prioridade: prioridadeBruta })
+    .eq("id", id);
+  if (error) {
+    return { status: "error", message: "Não foi possível salvar a edição. Tente novamente." };
+  }
+
+  revalidatePath(caminho);
+  return { status: "ok", message: "Comentário atualizado." };
+}
+
+export async function alternarResolvido(_estado: EstadoAcao, formData: FormData): Promise<EstadoAcao> {
+  const id = String(formData.get("id") ?? "").trim();
+  // O form envia o valor DESEJADO (o oposto do atual), evitando uma leitura extra.
+  const resolvido = String(formData.get("resolvido") ?? "") === "true";
+  const caminho = caminhoSeguro(formData.get("caminho"));
+
+  if (!id) return { status: "error", message: "Comentário inválido." };
+
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { status: "error", message: "Sessão expirada. Entre novamente." };
+
+  const { error } = await supabase
+    .from("comentarios")
+    .update({ resolvido })
+    .eq("id", id);
+  if (error) {
+    return { status: "error", message: "Não foi possível atualizar o status. Tente novamente." };
+  }
+
+  revalidatePath(caminho);
+  return { status: "ok", message: resolvido ? "Comentário resolvido." : "Comentário reaberto." };
+}
+
+export async function excluirComentario(_estado: EstadoAcao, formData: FormData): Promise<EstadoAcao> {
+  const id = String(formData.get("id") ?? "").trim();
+  const caminho = caminhoSeguro(formData.get("caminho"));
+
+  if (!id) return { status: "error", message: "Comentário inválido." };
+
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { status: "error", message: "Sessão expirada. Entre novamente." };
+  // A RLS só permite DELETE para admin; checamos o papel no JWT para
+  // devolver uma mensagem amigável em vez de um delete silencioso de 0 linhas.
+  if (user.app_metadata?.role !== "admin") {
+    return { status: "error", message: "Só o admin pode apagar." };
+  }
+
+  const { data, error } = await supabase
+    .from("comentarios")
+    .delete()
+    .eq("id", id)
+    .select("id");
+  if (error || !data || data.length === 0) {
+    // 0 linhas = a RLS bloqueou (ou o comentário já não existe).
+    return { status: "error", message: "Só o admin pode apagar." };
+  }
+
+  revalidatePath(caminho);
+  return { status: "ok", message: "Comentário apagado." };
 }

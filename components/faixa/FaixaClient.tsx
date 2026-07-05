@@ -17,9 +17,11 @@ interface FaixaClientProps {
   faixa: Faixa;
   versoes: VersaoFaixa[];
   comentariosPorVersao: Record<string, Comentario[]>;
+  // Calculado no servidor (app_metadata.role do JWT) — mostra o botão de apagar.
+  isAdmin?: boolean;
 }
 
-export function FaixaClient({ faixa, versoes, comentariosPorVersao }: FaixaClientProps) {
+export function FaixaClient({ faixa, versoes, comentariosPorVersao, isAdmin = false }: FaixaClientProps) {
   const ultimaVersao = versoes[versoes.length - 1];
   const { versaoAtual, duracao, tempoAtual } = usePlayer();
   // Tempo (s) capturado pelo clique na onda ou pelo playhead — abre o form.
@@ -109,7 +111,7 @@ export function FaixaClient({ faixa, versoes, comentariosPorVersao }: FaixaClien
           />
         </div>
       )}
-      <ListaComentarios comentarios={comentarios} />
+      <ListaComentarios comentarios={comentarios} isAdmin={isAdmin} />
     </div>
   );
 }
