@@ -49,6 +49,9 @@ export function SubirMusica({
   const [novoTipo, setNovoTipo] = useState<TipoProjeto>("single");
   const [etapa, setEtapa] = useState<Etapa>("idle");
   const [erro, setErro] = useState<string | null>(null);
+  // Faixa já criada num envio anterior que falhou no upload/versão — o retry
+  // retoma do passo 2 em vez de criar OUTRA faixa com o mesmo título (órfã).
+  const faixaCriadaRef = useRef<{ id: string; titulo: string } | null>(null);
 
   const enviando = etapa !== "idle";
   const nomeProjetoPadrao = `Faixas avulsas de ${artistaNome}`;
@@ -63,6 +66,7 @@ export function SubirMusica({
     setNovoNome("");
     setNovoTipo("single");
     setErro(null);
+    faixaCriadaRef.current = null;
     if (inputRef.current) inputRef.current.value = "";
   }
 
@@ -91,23 +95,32 @@ export function SubirMusica({
 
     try {
       // 1) resolve/cria o projeto e cria a faixa (Server Action).
-      setEtapa("faixa");
-      const formData = new FormData();
-      formData.set("titulo", titulo.trim());
-      formData.set("artistaId", artistaId);
-      formData.set("caminho", caminho);
-      if (modoProjeto === "existente") {
-        formData.set("projetoId", projetoId);
-      } else if (modoProjeto === "novo") {
-        formData.set("novoProjetoNome", novoNome.trim());
-        formData.set("novoProjetoTipo", novoTipo);
-      }
+      //    Se um envio anterior já criou esta faixa e falhou no upload,
+      //    reaproveita o id em vez de duplicar.
+      let faixaId: string;
+      const criadaAntes = faixaCriadaRef.current;
+      if (criadaAntes && criadaAntes.titulo === titulo.trim()) {
+        faixaId = criadaAntes.id;
+      } else {
+        setEtapa("faixa");
+        const formData = new FormData();
+        formData.set("titulo", titulo.trim());
+        formData.set("artistaId", artistaId);
+        formData.set("caminho", caminho);
+        if (modoProjeto === "existente") {
+          formData.set("projetoId", projetoId);
+        } else if (modoProjeto === "novo") {
+          formData.set("novoProjetoNome", novoNome.trim());
+          formData.set("novoProjetoTipo", novoTipo);
+        }
 
-      const resultado = await iniciarFaixa(ESTADO_INICIAL, formData);
-      if (resultado.status !== "ok" || !resultado.faixaId) {
-        throw new Error(resultado.message ?? "Não foi possível criar a faixa.");
+        const resultado = await iniciarFaixa(ESTADO_INICIAL, formData);
+        if (resultado.status !== "ok" || !resultado.faixaId) {
+          throw new Error(resultado.message ?? "Não foi possível criar a faixa.");
+        }
+        faixaId = resultado.faixaId;
+        faixaCriadaRef.current = { id: faixaId, titulo: titulo.trim() };
       }
-      const faixaId = resultado.faixaId;
 
       // 2) upload do áudio direto do browser (sessão do usuário — RLS aplica).
       setEtapa("audio");
