@@ -10,6 +10,7 @@ const ABAS = [
   { href: "/numeros", label: "Números" },
   { href: "/clipes", label: "Clipes" },
   { href: "/documentos", label: "Documentos" },
+  { href: "/importar", label: "Importar" },
 ];
 
 export function ArtistaTabs({ slug }: { slug: string }) {
