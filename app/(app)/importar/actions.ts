@@ -69,6 +69,27 @@ async function garantirProjeto(
   return novoProjeto.id;
 }
 
+// Split 100% automático do DONO da faixa — só para faixas do catálogo/canal
+// PRÓPRIO do artista (importarCatalogoDeezer, sincronizarCanalYoutube). Sem
+// isso, "Recebimento do artista" na página Números (getFaixasDoArtistaComNumeros
+// em lib/db.ts) ficava sempre "—"/R$0 pra toda faixa autoral recém-importada,
+// obrigando a cadastrar o split manualmente faixa por faixa mesmo quando o %
+// é óbvio (100%, é o próprio artista). `ignoreDuplicates` = ON CONFLICT DO
+// NOTHING: não pisa num split que o usuário já tenha ajustado manualmente.
+// NÃO é chamado em importarVideosSelecionados (footprint cross-channel) — ali
+// o % é desconhecido (feat em canal de terceiro); fica para o "Definir meu %
+// em massa" em app/(app)/splits/massa-actions.ts.
+async function criarSplitDono(
+  supabase: SupabaseServerClient,
+  faixaId: string,
+  artistaId: string,
+): Promise<void> {
+  await supabase.from("faixa_artistas").upsert(
+    { faixa_id: faixaId, artista_id: artistaId, papel: "principal", percentual: 100 },
+    { onConflict: "faixa_id,artista_id", ignoreDuplicates: true },
+  );
+}
+
 // ------------------------------------------------------------------
 // Deezer — busca de artista (keyless) e importação de catálogo.
 // ------------------------------------------------------------------
@@ -164,7 +185,7 @@ export async function importarCatalogoDeezer(
     const chave = faixa.titulo.trim().toLowerCase();
     if (titulosExistentes.has(chave)) { existentes++; continue; }
 
-    const { error } = await supabase.from("faixas").insert({
+    const { data: novaFaixa, error } = await supabase.from("faixas").insert({
       projeto_id: projetoId,
       titulo: faixa.titulo,
       capa_url: faixa.coverUrl ?? null,
@@ -172,11 +193,13 @@ export async function importarCatalogoDeezer(
       // Faixa importada é sempre um lançamento externo já existente (feat/
       // catálogo do Deezer) — nunca um estágio de produção interna.
       origem: "footprint",
-    });
+    }).select("id").single();
     // Erro de insert NÃO é "já existente" — reporta de verdade (não mascara).
-    if (error) { erros++; ultimoErro = error.message; continue; }
+    if (error || !novaFaixa) { erros++; ultimoErro = error?.message ?? "erro desconhecido"; continue; }
     titulosExistentes.add(chave);
     criadas++;
+    // Catálogo é sempre autoral do artista conectado — split do dono automático.
+    await criarSplitDono(supabase, novaFaixa.id, artistaId);
   }
 
   revalidatePath(caminho);
@@ -316,6 +339,8 @@ export async function sincronizarCanalYoutube(
       porVideoId.set(video.videoId, faixa);
       porTitulo.set(video.titulo.trim().toLowerCase(), faixa);
       faixasCriadas++;
+      // Canal PRÓPRIO do artista — split do dono automático (100%).
+      await criarSplitDono(supabase, faixa.id, artistaId);
     } else if (!porVideoId.has(video.videoId)) {
       // Faixa já existia (achada por título) sem vídeo vinculado: vincula agora.
       await supabase.from("faixas").update({ youtube_video_id: video.videoId }).eq("id", faixa.id);
