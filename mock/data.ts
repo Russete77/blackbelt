@@ -2,9 +2,9 @@ import type {
   Usuario, Projeto, Faixa, VersaoFaixa, Comentario, EstruturaFaixa,
 } from "@/types/domain";
 
-// Áudio de exemplo (domínio público) para o player funcionar sem backend.
-const AUDIO_DEMO =
-  "https://cdn.jsdelivr.net/gh/naomiaro/waveform-data@v4.5.0/test/media/mp3/1-summer-fireworks.mp3";
+// Áudio de exemplo local (public/demo.wav, ~210s) — sem dependência de rede/CDN,
+// para o player e a waveform funcionarem offline. Trocar pela URL real (R2) depois.
+const AUDIO_DEMO = "/demo.wav";
 
 export const usuarios: Usuario[] = [
   { id: "u_rick", nome: "Rick", papel: "admin" },
