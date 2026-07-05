@@ -11,7 +11,7 @@ export const navItems: NavItem[] = [
   { href: "/estudio", label: "Estúdio", icon: Headphones, disponivel: true },
   { href: "/analytics", label: "Analytics", icon: BarChart3, disponivel: false },
   { href: "/previsao", label: "Previsão", icon: TrendingUp, disponivel: false },
-  { href: "/shows", label: "Shows", icon: Mic2, disponivel: false },
+  { href: "/shows", label: "Shows", icon: Mic2, disponivel: true },
   { href: "/registro", label: "Registro", icon: FileText, disponivel: false },
 ];
 

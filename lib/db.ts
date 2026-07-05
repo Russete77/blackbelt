@@ -6,9 +6,12 @@
 import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
 import type {
-  Artista, Projeto, Faixa, VersaoFaixa, Comentario, Show, Metrica,
+  Artista, Projeto, Faixa, VersaoFaixa, Comentario, Metrica,
   TipoProjeto, EstagioPipeline, TipoVersao, CategoriaComentario, Prioridade,
 } from "@/types/domain";
+import type { ShowDetalhado } from "@/types/shows";
+import { normalizarStatusShow, parseRiderCamarim, parseRiderTecnico,
+  riderCamarimTemConteudo, riderTecnicoTemConteudo } from "@/lib/shows";
 
 // ------------------------------------------------------------------
 // Formatos das linhas (snake_case) — sem `Database` gerado ainda
@@ -39,6 +42,9 @@ interface ComentarioRow {
 interface ShowRow {
   id: string; artista_id: string; data: string | null; local: string | null;
   cache: number | string | null; status: string | null;
+  rider_tecnico: unknown; rider_camarim: unknown;
+  // Join opcional `artistas(nome)` — presente em getShows/getShow.
+  artistas?: { nome: string } | null;
 }
 interface MetricaRow {
   id: string; artista_id: string; faixa_id: string | null; plataforma: string;
@@ -116,14 +122,21 @@ function mapComentario(row: ComentarioRow, autorNome?: string): Comentario {
   };
 }
 
-function mapShow(row: ShowRow): Show {
+function mapShow(row: ShowRow): ShowDetalhado {
+  // Riders vêm de jsonb livre: normaliza para o shape da app e trata rider
+  // sem nenhum conteúdo como ausente (null) — a UI mostra "não preenchido".
+  const riderTecnico = parseRiderTecnico(row.rider_tecnico);
+  const riderCamarim = parseRiderCamarim(row.rider_camarim);
   return {
     id: row.id,
     artistaId: row.artista_id,
+    artistaNome: row.artistas?.nome,
     data: row.data ?? undefined,
     local: row.local ?? undefined,
     cache: row.cache != null ? Number(row.cache) : undefined,
-    status: row.status ?? undefined,
+    status: normalizarStatusShow(row.status),
+    riderTecnico: riderTecnicoTemConteudo(riderTecnico) ? riderTecnico : null,
+    riderCamarim: riderCamarimTemConteudo(riderCamarim) ? riderCamarim : null,
   };
 }
 
@@ -391,18 +404,41 @@ export async function getComentariosDeVersoes(
 }
 
 // ------------------------------------------------------------------
-// Shows e Métricas (abas mínimas do workspace do artista)
+// Shows (agenda do selo e do artista) e Métricas
 // ------------------------------------------------------------------
 
-export async function getShowsDoArtista(artistaId: string): Promise<Show[]> {
+// Agenda do selo: todos os shows visíveis ao usuário (RLS: admin vê tudo,
+// artista vê os próprios), com o nome do artista resolvido no join.
+export async function getShows(): Promise<ShowDetalhado[]> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("shows")
-    .select("*")
-    .eq("artista_id", artistaId)
-    .order("data", { ascending: false });
+    .select("*, artistas(nome)")
+    .order("data", { ascending: true, nullsFirst: false });
   if (error) throw error;
   return (data ?? []).map(mapShow);
+}
+
+export async function getShowsDoArtista(artistaId: string): Promise<ShowDetalhado[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("shows")
+    .select("*, artistas(nome)")
+    .eq("artista_id", artistaId)
+    .order("data", { ascending: true, nullsFirst: false });
+  if (error) throw error;
+  return (data ?? []).map(mapShow);
+}
+
+export async function getShow(id: string): Promise<ShowDetalhado | null> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("shows")
+    .select("*, artistas(nome)")
+    .eq("id", id)
+    .maybeSingle();
+  if (error) throw error;
+  return data ? mapShow(data) : null;
 }
 
 export async function getMetricasDoArtista(artistaId: string): Promise<Metrica[]> {
