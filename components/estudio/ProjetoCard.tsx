@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Card, CardBody } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
+import { NovaFaixaForm } from "@/components/estudio/NovaFaixaForm";
 import { labelEstagio, labelTipoProjeto } from "@/lib/labels";
 import type { Faixa, Projeto } from "@/types/domain";
 
@@ -30,6 +31,7 @@ export function ProjetoCard({ projeto, faixas }: { projeto: Projeto; faixas: Fai
             </li>
           ))}
         </ul>
+        <NovaFaixaForm projetoId={projeto.id} />
       </CardBody>
     </Card>
   );

@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { ProjetoCard } from "@/components/estudio/ProjetoCard";
+import { NovoProjetoForm } from "@/components/artista/NovoProjetoForm";
 import { getArtista, getProjetosDoArtista, getFaixasDoProjeto } from "@/lib/db";
 
 export default async function ArtistaProjetosPage({
@@ -18,7 +19,10 @@ export default async function ArtistaProjetosPage({
 
   return (
     <div>
-      <h2 className="text-lg font-semibold mb-3">Projetos e faixas</h2>
+      <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
+        <h2 className="text-lg font-semibold">Projetos e faixas</h2>
+        <NovoProjetoForm artistaId={artista.id} />
+      </div>
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         {projetosComFaixas.length === 0 && (
           <p className="text-sm text-muted">Nenhum projeto cadastrado ainda para {artista.nome}.</p>
