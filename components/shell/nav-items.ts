@@ -1,5 +1,5 @@
 import type { LucideIcon } from "lucide-react";
-import { Home, Headphones, BarChart3, TrendingUp, Mic2, FileText } from "lucide-react";
+import { Home, Users, Headphones, BarChart3, TrendingUp, Mic2, FileText } from "lucide-react";
 
 export interface NavItem {
   href: string; label: string; icon: LucideIcon; disponivel: boolean;
@@ -7,6 +7,7 @@ export interface NavItem {
 
 export const navItems: NavItem[] = [
   { href: "/", label: "Home", icon: Home, disponivel: true },
+  { href: "/artistas", label: "Artistas", icon: Users, disponivel: true },
   { href: "/estudio", label: "Estúdio", icon: Headphones, disponivel: true },
   { href: "/analytics", label: "Analytics", icon: BarChart3, disponivel: false },
   { href: "/previsao", label: "Previsão", icon: TrendingUp, disponivel: false },

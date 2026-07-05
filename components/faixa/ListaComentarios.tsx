@@ -2,7 +2,6 @@
 import { usePlayer } from "@/components/player/PlayerContext";
 import { formatTempo } from "@/components/player/format";
 import { Badge } from "@/components/ui/Badge";
-import { getUsuario } from "@/mock/data";
 import type { Comentario } from "@/types/domain";
 
 export function ListaComentarios({ comentarios }: { comentarios: Comentario[] }) {
@@ -25,7 +24,7 @@ export function ListaComentarios({ comentarios }: { comentarios: Comentario[] })
               {c.resolvido && <Badge tone="aprovado">resolvido</Badge>}
             </div>
             <p className="text-sm">{c.texto}</p>
-            <p className="text-xs text-muted mt-1">— {getUsuario(c.autor)?.nome ?? c.autor}</p>
+            <p className="text-xs text-muted mt-1">— {c.autorNome ?? c.autor}</p>
           </button>
         </li>
       ))}

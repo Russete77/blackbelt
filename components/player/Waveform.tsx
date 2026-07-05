@@ -2,22 +2,22 @@
 import { useEffect, useRef } from "react";
 import WaveSurfer from "wavesurfer.js";
 import { usePlayer } from "./PlayerContext";
-import { getVersoesDaFaixa, versoes } from "@/mock/data";
 import { tokens } from "@/lib/tokens";
 
 // cor neutra da onda não-tocada (independe do rebrand)
 const WAVE_COLOR = "#3A3A40";
 
-export function Waveform({ versaoId, height = 96 }: { versaoId: string; height?: number }) {
+export function Waveform({
+  versaoId, arquivoUrl, height = 96,
+}: { versaoId: string; arquivoUrl: string; height?: number }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const player = usePlayer();
-  const versao = versoes.find((v) => v.id === versaoId);
 
   useEffect(() => {
-    if (!containerRef.current || !versao) return;
+    if (!containerRef.current || !arquivoUrl) return;
     const ws = WaveSurfer.create({
       container: containerRef.current,
-      url: versao.arquivoUrl,
+      url: arquivoUrl,
       height,
       waveColor: WAVE_COLOR,
       progressColor: tokens.colors.accent,
@@ -37,10 +37,8 @@ export function Waveform({ versaoId, height = 96 }: { versaoId: string; height?:
       ws.destroy();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [versaoId]);
+  }, [versaoId, arquivoUrl]);
 
-  if (!versao) return null;
+  if (!arquivoUrl) return null;
   return <div ref={containerRef} className="w-full cursor-pointer" />;
 }
-
-export { getVersoesDaFaixa };
