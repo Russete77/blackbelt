@@ -36,4 +36,23 @@ export interface LinhaFaixaAgregada {
   streams: number | null;
   receita: number | null;
   receitaPor1kStreams: number | null;
+  // true quando `receita` veio da estimativa por RPM (lib/metricas.ts#receitaComEstimativa)
+  // em vez de receita real importada — a UI mostra um selo "est." nesse caso.
+  receitaEstimada?: boolean;
+}
+
+// Linha "por faixa" da página Números do artista (getFaixasComSplitDoArtista):
+// além de streams/receita da faixa INTEIRA (todos os participantes), traz o
+// papel e o percentual do artista e o recebimento dele nessa faixa
+// (receita × percentual/100) — é assim que um feat aparece com o valor
+// certo, não a receita da faixa inteira.
+export interface LinhaFaixaSplit {
+  chave: string;
+  rotulo: string;
+  papel: string | null;
+  percentual: number;
+  streams: number | null;
+  receita: number | null;
+  receitaEstimada: boolean;
+  recebimento: number | null;
 }

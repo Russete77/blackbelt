@@ -7,21 +7,25 @@ import { TabelaFaixas } from "@/components/analytics/TabelaFaixas";
 import { GraficoBarras, type SerieBarra } from "@/components/analytics/GraficoBarras";
 import { GraficoLinha } from "@/components/analytics/GraficoLinha";
 import { FiltroAnalytics } from "@/components/analytics/FiltroAnalytics";
+import { FiltroRpm } from "@/components/analytics/FiltroRpm";
 import { ImportarCSV } from "@/components/analytics/ImportarCSV";
 import { SincronizarYoutube } from "@/components/analytics/SincronizarYoutube";
 import { getArtistas, getMetricas, contarStatusYoutube, getFaixas, getFaixasDoArtista } from "@/lib/db";
 import {
   totaisMetricas, porFaixa, porMes, porArtistaEPlataforma,
-  formatarReceita, formatarStreams, corCategoria,
+  formatarReceita, formatarStreams, corCategoria, receitaComEstimativa, receitaPor1kStreams,
 } from "@/lib/metricas";
 import { youtubeConfigurado } from "@/lib/youtube";
 
 export default async function AnalyticsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ artista?: string; plataforma?: string }>;
+  searchParams: Promise<{ artista?: string; plataforma?: string; rpm?: string }>;
 }) {
-  const { artista, plataforma } = await searchParams;
+  const { artista, plataforma, rpm: rpmParam } = await searchParams;
+  const rpmBruto = rpmParam ? Number(rpmParam.replace(",", ".")) : null;
+  const rpm = rpmBruto != null && Number.isFinite(rpmBruto) && rpmBruto > 0 ? rpmBruto : null;
+
   const [metricas, artistas, statusYoutube, faixasRelevantes] = await Promise.all([
     getMetricas(), getArtistas(), contarStatusYoutube(),
     artista ? getFaixasDoArtista(artista) : getFaixas(),
@@ -38,10 +42,21 @@ export default async function AnalyticsPage({
   // conjunto de faixas listadas respeita apenas o filtro de artista (ver
   // faixasRelevantes acima), então uma faixa sem métrica na plataforma
   // selecionada ainda aparece na tabela, com "—".
+  // RPM informado (?rpm=): faixa sem receita real importada mas com streams
+  // ganha uma receita ESTIMADA (streams/1000 × rpm), marcada com selo "est."
+  // — a receita real sempre precede a estimativa (ver lib/metricas.ts).
   const linhasFaixas = porFaixa(
     faixasRelevantes.map((f) => ({ id: f.id, titulo: f.titulo })),
     filtradas,
-  );
+  ).map((l) => {
+    const { valor, estimada } = receitaComEstimativa(l.receita, l.streams, rpm);
+    return {
+      ...l,
+      receita: valor,
+      receitaEstimada: estimada,
+      receitaPor1kStreams: valor != null && l.streams != null ? receitaPor1kStreams(valor, l.streams) : l.receitaPor1kStreams,
+    };
+  });
   const linhasMes = porMes(filtradas).map((l) => ({ rotulo: l.rotulo, valor: l.receita }));
   const linhasArtistaPlataforma = porArtistaEPlataforma(filtradas);
 
@@ -65,9 +80,14 @@ export default async function AnalyticsPage({
         <ImportarCSV artistas={artistas} />
       </div>
 
-      <div className="mb-6 w-full min-w-48 sm:w-auto">
+      <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
+        <div className="w-full min-w-48 sm:w-auto">
+          <Suspense fallback={null}>
+            <FiltroAnalytics artistas={artistas} plataformas={plataformasDistintas} />
+          </Suspense>
+        </div>
         <Suspense fallback={null}>
-          <FiltroAnalytics artistas={artistas} plataformas={plataformasDistintas} />
+          <FiltroRpm rpmAtual={rpm ?? undefined} />
         </Suspense>
       </div>
 

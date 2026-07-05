@@ -1,33 +1,60 @@
+import { Suspense } from "react";
 import { notFound } from "next/navigation";
-import { BarChart3, Headphones, Wallet } from "lucide-react";
-import { getArtista, getMetricasDoArtista, getFaixasDoArtista } from "@/lib/db";
+import { BarChart3, Headphones, Wallet, HandCoins } from "lucide-react";
+import { getArtista, getMetricasDoArtista, getFaixasComSplitDoArtista } from "@/lib/db";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { StatTile } from "@/components/ui/StatTile";
-import { TabelaFaixas } from "@/components/analytics/TabelaFaixas";
+import { TabelaFaixasSplit } from "@/components/analytics/TabelaFaixasSplit";
 import { GraficoBarras, type SerieBarra } from "@/components/analytics/GraficoBarras";
+import { FiltroRpm } from "@/components/analytics/FiltroRpm";
 import { ImportarCSV } from "@/components/analytics/ImportarCSV";
 import { SincronizarYoutube } from "@/components/analytics/SincronizarYoutube";
 import {
-  totaisMetricas, porFaixa, porPlataforma, formatarReceita, formatarStreams, PALETA_CATEGORICA,
+  totaisMetricas, porPlataforma, formatarReceita, formatarStreams, PALETA_CATEGORICA,
+  receitaComEstimativa, recebimentoArtista,
 } from "@/lib/metricas";
 import { youtubeConfigurado } from "@/lib/youtube";
+import type { LinhaFaixaSplit } from "@/types/analytics";
 
 export default async function NumerosPage({
-  params,
+  params, searchParams,
 }: {
   params: Promise<{ slug: string }>;
+  searchParams: Promise<{ rpm?: string }>;
 }) {
   const { slug } = await params;
+  const { rpm: rpmParam } = await searchParams;
+  const rpmBruto = rpmParam ? Number(rpmParam.replace(",", ".")) : null;
+  const rpm = rpmBruto != null && Number.isFinite(rpmBruto) && rpmBruto > 0 ? rpmBruto : null;
+
   const artista = await getArtista(slug);
   if (!artista) return notFound();
 
-  const [metricas, faixas] = await Promise.all([
+  const [metricas, faixasComSplit] = await Promise.all([
     getMetricasDoArtista(artista.id),
-    getFaixasDoArtista(artista.id),
+    getFaixasComSplitDoArtista(artista.id),
   ]);
   const totais = totaisMetricas(metricas);
-  const linhasFaixas = porFaixa(faixas.map((f) => ({ id: f.id, titulo: f.titulo })), metricas);
   const linhasPlataforma = porPlataforma(metricas).map((l) => ({ rotulo: l.rotulo, streams: l.streams }));
+
+  // "Por faixa" com split (%) — inclui feats: a receita mostrada é da FAIXA
+  // inteira (todos os participantes), e "recebimento" já aplica o % do
+  // artista. RPM (?rpm=) estima receita quando só há views (YouTube) e
+  // nenhuma receita real importada ainda — sempre com selo "est.".
+  const linhasFaixasSplit: LinhaFaixaSplit[] = faixasComSplit.map((f) => {
+    const { valor, estimada } = receitaComEstimativa(f.receita, f.streams, rpm);
+    return {
+      chave: f.id,
+      rotulo: f.titulo,
+      papel: f.papel,
+      percentual: f.percentual,
+      streams: f.streams,
+      receita: valor,
+      receitaEstimada: estimada,
+      recebimento: recebimentoArtista(valor, f.percentual),
+    };
+  });
+  const recebimentoTotal = linhasFaixasSplit.reduce((s, l) => s + (l.recebimento ?? 0), 0);
 
   // Uma série só (streams por plataforma do MESMO artista): a identidade
   // categórica aqui é a posição no eixo X, não a cor — todas as barras usam
@@ -41,7 +68,7 @@ export default async function NumerosPage({
         <ImportarCSV artistas={[{ id: artista.id, nome: artista.nome }]} artistaFixoId={artista.id} />
       </div>
 
-      {metricas.length === 0 && faixas.length === 0 ? (
+      {metricas.length === 0 && faixasComSplit.length === 0 ? (
         <EmptyState
           icon={BarChart3}
           title={`Nenhuma métrica importada ainda para ${artista.nome}.`}
@@ -49,9 +76,15 @@ export default async function NumerosPage({
         />
       ) : (
         <>
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid gap-4 sm:grid-cols-3">
             <StatTile icon={Headphones} label="Streams" value={formatarStreams(totais.streams)} />
             <StatTile icon={Wallet} label="Receita" value={formatarReceita(totais.receita)} />
+            <StatTile
+              icon={HandCoins}
+              label="Recebimento do artista"
+              value={formatarReceita(recebimentoTotal)}
+              hint="Receita de cada faixa × % do artista (inclui feats)"
+            />
           </div>
 
           <div className="rounded-lg border border-line bg-surface p-4 md:p-5">
@@ -64,10 +97,17 @@ export default async function NumerosPage({
           </div>
 
           <div>
-            <h3 className="mb-3 text-sm font-semibold">Por faixa</h3>
-            <TabelaFaixas
-              linhas={linhasFaixas}
-              tituloVazio={`Nenhuma faixa cadastrada ainda para ${artista.nome}.`}
+            <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
+              <h3 className="text-sm font-semibold">
+                Por faixa <span className="font-normal text-muted">(recebimento pelo split, inclui feats)</span>
+              </h3>
+              <Suspense fallback={null}>
+                <FiltroRpm rpmAtual={rpm ?? undefined} />
+              </Suspense>
+            </div>
+            <TabelaFaixasSplit
+              linhas={linhasFaixasSplit}
+              tituloVazio={`Nenhuma faixa com split cadastrado ainda para ${artista.nome}.`}
             />
           </div>
         </>
