@@ -24,11 +24,22 @@ export interface Projeto {
   artistas: string[];
   statusGeral: EstagioPipeline; capaUrl?: string;
 }
+// 'estudio' = produzida pela gente (versões/beat/mix/comentários, pipeline
+// normal). 'footprint' = lançamento externo monitorado (feat em canal/selo de
+// terceiro) — só players + números + split, sem UI de produção (ver
+// components/faixa/FootprintView.tsx).
+export type OrigemFaixa = "estudio" | "footprint";
+
 export interface Faixa {
   id: string; projetoId: string; titulo: string; genero?: string; estagio: EstagioPipeline;
   capaUrl?: string; letra?: string;
+  origem: OrigemFaixa;
   // Vídeo do YouTube vinculado (id de 11 chars) — usado para puxar views reais em lib/metricas.
   youtubeVideoId?: string;
+  // Ids de faixa nas plataformas de streaming — usados só pela FootprintView
+  // para montar o embed do player (ver lib/plataformas.ts).
+  spotifyTrackId?: string;
+  deezerTrackId?: string;
 }
 export interface VersaoFaixa {
   id: string; faixaId: string; tipo: TipoVersao; rotulo: string;
