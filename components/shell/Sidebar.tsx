@@ -4,15 +4,16 @@ import { usePathname } from "next/navigation";
 import { navItems } from "./nav-items";
 import { Badge } from "@/components/ui/Badge";
 import { cn } from "@/lib/cn";
+import { UserMenu, type UsuarioSessao } from "./UserMenu";
 
-export function Sidebar() {
+export function Sidebar({ usuario }: { usuario: UsuarioSessao | null }) {
   const path = usePathname();
   return (
     <aside className="hidden md:flex md:w-60 md:flex-col gap-1 p-4 border-r border-line bg-bg">
       <div className="px-2 py-3 text-lg font-bold tracking-tight">
         BLACK <span className="text-accent">BELT</span>
       </div>
-      <nav className="flex flex-col gap-1">
+      <nav className="flex flex-1 flex-col gap-1">
         {navItems.map((item) => {
           const ativo = path === item.href;
           const inner = (
@@ -33,6 +34,7 @@ export function Sidebar() {
           );
         })}
       </nav>
+      <UserMenu usuario={usuario} />
     </aside>
   );
 }
