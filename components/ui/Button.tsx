@@ -4,14 +4,14 @@ type Variant = "primary" | "ghost" | "outline";
 type Size = "sm" | "md" | "icon";
 
 const variants: Record<Variant, string> = {
-  primary: "bg-accent text-accent-fg hover:brightness-110",
-  ghost: "bg-transparent text-fg hover:bg-surface2",
-  outline: "border border-line text-fg hover:bg-surface2",
+  primary: "bg-accent text-accent-fg hover:brightness-110 active:brightness-95 shadow-sm shadow-black/20",
+  ghost: "bg-transparent text-fg hover:bg-surface2 active:bg-surface2",
+  outline: "border border-line text-fg hover:border-accent/40 hover:bg-surface2 active:bg-surface2",
 };
 const sizes: Record<Size, string> = {
-  sm: "h-8 px-3 text-sm",
-  md: "h-10 px-4 text-sm",
-  icon: "h-10 w-10 p-0 justify-center",
+  sm: "h-9 px-3 text-sm",
+  md: "h-11 px-4 text-sm",
+  icon: "h-11 w-11 p-0 justify-center",
 };
 
 export function Button({
@@ -20,7 +20,8 @@ export function Button({
   return (
     <button
       className={cn(
-        "inline-flex items-center gap-2 rounded-md font-medium transition disabled:opacity-50",
+        "inline-flex items-center gap-2 rounded-md font-medium transition-all duration-200 ease-out",
+        "active:scale-[0.97] disabled:pointer-events-none disabled:opacity-50",
         variants[variant], sizes[size], className,
       )}
       {...props}
