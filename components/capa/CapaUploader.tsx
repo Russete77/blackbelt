@@ -11,6 +11,9 @@ import { createClient } from "@/lib/supabase/client";
 
 type TipoCapa = "artista" | "projeto" | "faixa";
 
+const EXTENSOES_IMAGEM = ["jpg", "jpeg", "png", "webp"];
+const TAMANHO_MAX_MB = 10;
+
 const ALVOS: Record<TipoCapa, { tabela: string; coluna: string }> = {
   artista: { tabela: "artistas", coluna: "foto_url" },
   projeto: { tabela: "projetos", coluna: "capa_url" },
@@ -28,6 +31,16 @@ export function CapaUploader({
   async function enviar(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
+    // accept="image/*" é só dica de UI — validamos de verdade antes de subir.
+    const ext = (file.name.split(".").pop() || "").toLowerCase();
+    if (!EXTENSOES_IMAGEM.includes(ext)) {
+      setErro(`Formato não suportado (.${ext || "?"}). Use: ${EXTENSOES_IMAGEM.join(", ")}.`);
+      return;
+    }
+    if (file.size > TAMANHO_MAX_MB * 1024 * 1024) {
+      setErro(`Imagem de ${Math.round(file.size / 1024 / 1024)} MB — o limite é ${TAMANHO_MAX_MB} MB.`);
+      return;
+    }
     setEnviando(true);
     setErro(null);
 
@@ -36,13 +49,12 @@ export function CapaUploader({
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Sessão expirada. Entre novamente.");
 
-      const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
       const path = `${tipo}/${id}.${ext}`;
 
       const { error: uploadError } = await supabase.storage
         .from("covers")
         .upload(path, file, { contentType: file.type || "image/jpeg", upsert: true });
-      if (uploadError) throw new Error("Falha no upload da imagem.");
+      if (uploadError) throw new Error(`Falha no upload da imagem: ${uploadError.message}`);
 
       const alvo = ALVOS[tipo];
       const { error: updateError } = await supabase
