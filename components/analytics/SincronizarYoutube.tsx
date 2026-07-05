@@ -20,12 +20,17 @@ const ESTADO_INICIAL: EstadoYoutube = { status: "idle" };
 const ESTADO_TUDO_INICIAL: EstadoSincronizacaoYoutube = { status: "idle" };
 
 export function SincronizarYoutube({
-  configurado, artistas, artistaFixoId, status,
+  configurado, artistas, artistaFixoId, status, permitirManual = true,
 }: {
   configurado: boolean;
   artistas: { id: string; nome: string }[];
   artistaFixoId?: string;
   status?: { comVideo: number; semVideo: number };
+  // false esconde o form de "1 vídeo manualmente" (widget antigo que confundia
+  // quem esperava ver as faixas cadastradas aparecerem sozinhas) — usado no
+  // painel do selo, onde o caminho recomendado é a aba Conectar & Importar
+  // de cada artista. O botão de sincronização em lote continua disponível.
+  permitirManual?: boolean;
 }) {
   const caminho = usePathname();
   const [manualAberto, setManualAberto] = useState(false);
@@ -82,7 +87,7 @@ export function SincronizarYoutube({
         </div>
       )}
 
-      {!manualAberto ? (
+      {!permitirManual ? null : !manualAberto ? (
         <button
           type="button"
           onClick={() => setManualAberto(true)}
