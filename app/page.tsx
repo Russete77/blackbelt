@@ -16,7 +16,7 @@ export default function Home() {
             <Card className={n.disponivel ? "hover:border-accent transition" : "opacity-60"}>
               <CardBody>
                 <div className="flex items-center justify-between">
-                  <span className="text-2xl" aria-hidden>{n.icon}</span>
+                  <n.icon className="h-5 w-5" aria-hidden />
                   {!n.disponivel && <Badge tone="neutral">Em breve</Badge>}
                 </div>
                 <h3 className="mt-3 font-semibold">{n.label}</h3>

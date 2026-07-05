@@ -18,7 +18,7 @@ export function BottomNav() {
             ativo ? "text-accent" : "text-muted",
             !item.disponivel && "opacity-50",
           )}>
-            <span aria-hidden className="text-base">{item.icon}</span>
+            <item.icon className="h-5 w-5" aria-hidden />
             {item.label}
           </span>
         );

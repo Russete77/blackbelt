@@ -1,13 +1,15 @@
+import type { LucideIcon } from "lucide-react";
+import { Home, Headphones, BarChart3, TrendingUp, Mic2, FileText } from "lucide-react";
+
 export interface NavItem {
-  href: string; label: string; icon: string; disponivel: boolean;
+  href: string; label: string; icon: LucideIcon; disponivel: boolean;
 }
 
-// icon = emoji simples por enquanto (troca por lib de ícones depois, se quiser).
 export const navItems: NavItem[] = [
-  { href: "/", label: "Home", icon: "🏠", disponivel: true },
-  { href: "/estudio", label: "Estúdio", icon: "🎧", disponivel: true },
-  { href: "/analytics", label: "Analytics", icon: "📊", disponivel: false },
-  { href: "/previsao", label: "Previsão", icon: "🔮", disponivel: false },
-  { href: "/shows", label: "Shows", icon: "🎤", disponivel: false },
-  { href: "/registro", label: "Registro", icon: "📄", disponivel: false },
+  { href: "/", label: "Home", icon: Home, disponivel: true },
+  { href: "/estudio", label: "Estúdio", icon: Headphones, disponivel: true },
+  { href: "/analytics", label: "Analytics", icon: BarChart3, disponivel: false },
+  { href: "/previsao", label: "Previsão", icon: TrendingUp, disponivel: false },
+  { href: "/shows", label: "Shows", icon: Mic2, disponivel: false },
+  { href: "/registro", label: "Registro", icon: FileText, disponivel: false },
 ];

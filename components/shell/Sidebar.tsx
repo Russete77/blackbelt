@@ -21,7 +21,7 @@ export function Sidebar() {
               ativo ? "bg-surface2 text-fg" : "text-muted hover:text-fg hover:bg-surface",
               !item.disponivel && "opacity-60",
             )}>
-              <span aria-hidden>{item.icon}</span>
+              <item.icon className="h-5 w-5" aria-hidden />
               <span className="flex-1">{item.label}</span>
               {!item.disponivel && <Badge tone="neutral">Em breve</Badge>}
             </span>
