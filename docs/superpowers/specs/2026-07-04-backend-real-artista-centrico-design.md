@@ -118,3 +118,66 @@ Tratar sempre como **rascunho revisado por humano** (PRD §7).
 
 ## 11. Fora de escopo agora
 Pagamentos, app mobile nativo, integração com pipeline de lançamento existente (D-30→D0) — fases posteriores por spec próprio.
+
+---
+
+## BLUEPRINT COMPLETO — Sistema operacional da gravadora (2026-07-05)
+
+Rick pediu "o maior sistema para gravadoras/produtoras/selos". Mapa página×aba×funcionalidade,
+construído módulo a módulo (cada um: dados reais + CRUD + edição + notificação onde fizer sentido).
+
+### Nível SELO (visão da produtora)
+- **Dashboard** — visão geral: faixas em produção, próximos lançamentos, shows da semana, pendências.
+- **Estúdio (selo)** — todos os projetos do selo em Kanban (Ideia→...→Lançado); produção.
+- **Analytics & Royalties** — YouTube (API, auto) + importação de planilha mensal (IA normaliza) →
+  views × recebimento por faixa/artista; gráficos; transparência.
+- **Previsão** — forecast de lançamento com base no histórico acumulado.
+- **Agenda & Shows** — calendário interativo, **sync Google Calendar**, cachês, status.
+- **Registro & Direitos** — obra/fonograma/videograma, ISRC, cue sheets (campos PRD §14).
+- **Demandas & Notificações** — tarefas atribuídas aos artistas + avisos (in-app + e-mail).
+- **Admin/Config** — convites, papéis (admin/artista/colaborador), integrações.
+
+### Nível ARTISTA (a "pasta" de cada um — ele organiza a própria casa)
+Cada `/artista/[slug]` com abas, todas funcionais:
+- **Projetos/Faixas** — criar projeto (individual do artista OU do selo), upload de faixa/versões,
+  waveform real, comentários por timestamp (editar/resolver/apagar), zoom, loop, A/B, estrutura, pipeline.
+- **Lançamentos** — releases: data, plataformas, ISRC, capa, status; checklist D-30→D0.
+- **Números** — analytics do artista (views×receita, evolução).
+- **Shows** — agenda do artista, riders técnicos + camarim, cachês.
+- **Clipes** — produções audiovisuais: datas, demandas, status, cue sheet.
+- **Financeiro** — recebimentos, splits de composição, repasses.
+- **Documentos/Contratos** — arquivos.
+
+### Integrações reais (viáveis)
+- YouTube Data API (views auto). Google Calendar API (agenda). Resend/e-mail (notificações).
+- Importação de planilha/CSV com parsing por IA (analytics/royalties). Distribuidor: ver [[blackbelt-distributor]].
+
+### NÃO viável / evitar (honestidade)
+- "Scraper mágico" de streams do Spotify/Apple — sem API pública, contra ToS, frágil, risco de ban.
+  Streams do Spotify entram por planilha (Spotify for Artists / distribuidor), não por scraping.
+
+### Ordem de construção sugerida
+1. (em andamento) Estúdio/Faixa funcional completo + edição de comentários + áudio avançado.
+2. Overhaul de UI/UX (PC + celular).
+3. Pasta do artista com TODAS as abas funcionais (lançamentos, números, shows, clipes, financeiro, docs).
+4. Agenda & Shows (Google Calendar). 5. Analytics & Royalties (YouTube + importação planilha).
+6. Registro & Direitos. 7. Previsão. 8. Notificações/Demandas. 9. Deploy Vercel.
+
+---
+
+## AUDITORIA DE CTO — entregar APÓS o build (pedido de Rick, 2026-07-05)
+
+Depois que as páginas/módulos estiverem prontos, entregar uma **auditoria completa como CTO**:
+prever novas features que fariam diferença e agregariam ao projeto por completo — organização,
+musical, visual, financeiro.
+
+**Maiores dores atuais do Rick (guiam a auditoria):**
+- Criação de **roteiros de verdade** (para clipes/audiovisual) — aponta p/ geração assistida por IA de roteiro/storyboard.
+- **Artes de capa** — aponta p/ geração de capa por IA (image gen) + versionamento/aprovação.
+- **Artes VFX** — conceito/moodboard de VFX assistido por IA.
+- Organização de **riders, shows, registros, analytics**.
+- **Balanço financeiro completo** — do selo E individual por artista (recebimentos, splits, repasses, custos).
+
+A auditoria deve cruzar essas dores com o blueprint e propor features de alto impacto
+(ex.: gerador de roteiro/storyboard por IA, gerador de capa por IA com aprovação, painel financeiro
+360 selo+artista, automações de rider, etc.), priorizadas por impacto × esforço.
