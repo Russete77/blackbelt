@@ -8,6 +8,7 @@ const ABAS = [
   { href: "/feats", label: "Feats" },
   { href: "/lancamentos", label: "Lançamentos" },
   { href: "/shows", label: "Shows" },
+  { href: "/demandas", label: "Demandas" },
   { href: "/numeros", label: "Números" },
   { href: "/clipes", label: "Clipes" },
   { href: "/documentos", label: "Documentos" },
