@@ -13,6 +13,7 @@ import {
   resolverCanalYoutube, listarVideosCanal, buscarVideosArtistaYoutube,
   youtubeConfigurado, type VideoBuscaYoutube,
 } from "@/lib/youtube";
+import { youtubeThumbnailUrl } from "@/lib/faixa";
 
 export interface EstadoAcao {
   status: "idle" | "ok" | "error";
@@ -158,6 +159,10 @@ export async function importarCatalogoDeezer(
       projeto_id: projetoId,
       titulo: faixa.titulo,
       capa_url: faixa.coverUrl ?? null,
+      deezer_track_id: faixa.deezerTrackId,
+      // Faixa importada é sempre um lançamento externo já existente (feat/
+      // catálogo do Deezer) — nunca um estágio de produção interna.
+      origem: "footprint",
     });
     // Erro de insert NÃO é "já existente" — reporta de verdade (não mascara).
     if (error) { erros++; ultimoErro = error.message; continue; }
@@ -282,7 +287,14 @@ export async function sincronizarCanalYoutube(
     if (!faixa) {
       const { data: novaFaixa, error } = await supabase
         .from("faixas")
-        .insert({ projeto_id: projetoId, titulo: video.titulo, youtube_video_id: video.videoId })
+        .insert({
+          projeto_id: projetoId,
+          titulo: video.titulo,
+          youtube_video_id: video.videoId,
+          capa_url: youtubeThumbnailUrl(video.videoId),
+          // Vídeo já publicado no canal — é um lançamento, não uma ideia em produção.
+          origem: "footprint",
+        })
         .select("id")
         .single();
       if (error || !novaFaixa) continue;
@@ -412,7 +424,14 @@ export async function importarVideosSelecionados(
     if (!faixa) {
       const { data: novaFaixa, error } = await supabase
         .from("faixas")
-        .insert({ projeto_id: projetoId, titulo: video.titulo, youtube_video_id: video.videoId })
+        .insert({
+          projeto_id: projetoId,
+          titulo: video.titulo,
+          youtube_video_id: video.videoId,
+          capa_url: youtubeThumbnailUrl(video.videoId),
+          // Feat/aparição já publicada em canal de terceiro — footprint, não estúdio.
+          origem: "footprint",
+        })
         .select("id")
         .single();
       if (error || !novaFaixa) continue;
