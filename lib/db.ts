@@ -29,6 +29,7 @@ interface ProjetoRow {
 interface FaixaRow {
   id: string; projeto_id: string; titulo: string; genero: string | null;
   estagio: EstagioPipeline; capa_url: string | null; letra: string | null;
+  youtube_video_id?: string | null;
 }
 interface VersaoRow {
   id: string; faixa_id: string; tipo: TipoVersao; rotulo: string;
@@ -96,6 +97,7 @@ function mapFaixa(row: FaixaRow): Faixa {
     estagio: row.estagio,
     capaUrl: row.capa_url ?? undefined,
     letra: row.letra ?? undefined,
+    youtubeVideoId: row.youtube_video_id ?? undefined,
   };
 }
 
@@ -479,4 +481,76 @@ export async function getMetricasDoArtista(artistaId: string): Promise<MetricaDe
     .returns<MetricaJoinRow[]>();
   if (error) throw error;
   return (data ?? []).map(mapMetricaDetalhada);
+}
+
+// ------------------------------------------------------------------
+// Links externos (YouTube) por faixa — usado pela sincronização de views.
+// ------------------------------------------------------------------
+
+// Faixa com vídeo do YouTube vinculado, já resolvida para o primeiro
+// artista do seu projeto (via projeto_artistas) — o dono da métrica
+// `metricas.artista_id`. Faixa de projeto do Selo (sem artista vinculado)
+// entra com artistaId null.
+export interface FaixaComYoutube {
+  id: string;
+  titulo: string;
+  projetoId: string;
+  youtubeVideoId: string;
+  artistaId: string | null;
+}
+
+export async function getFaixasComYoutube(): Promise<FaixaComYoutube[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("faixas")
+    .select("id, titulo, projeto_id, youtube_video_id")
+    .not("youtube_video_id", "is", null)
+    .returns<{ id: string; titulo: string; projeto_id: string; youtube_video_id: string | null }[]>();
+  if (error) throw error;
+
+  const comVideo = (data ?? []).filter(
+    (r): r is typeof r & { youtube_video_id: string } => Boolean(r.youtube_video_id?.trim()),
+  );
+  if (comVideo.length === 0) return [];
+
+  const projetoIds = Array.from(new Set(comVideo.map((r) => r.projeto_id)));
+  const { data: vinculos, error: vinculosError } = await supabase
+    .from("projeto_artistas")
+    .select("projeto_id, artista_id")
+    .in("projeto_id", projetoIds);
+  if (vinculosError) throw vinculosError;
+
+  // Primeiro artista vinculado por projeto (ordem de retorno do banco) —
+  // suficiente para o caso comum de 1 artista por projeto/faixa.
+  const artistaPorProjeto = new Map<string, string>();
+  for (const v of vinculos ?? []) {
+    if (!artistaPorProjeto.has(v.projeto_id)) artistaPorProjeto.set(v.projeto_id, v.artista_id);
+  }
+
+  return comVideo.map((r) => ({
+    id: r.id,
+    titulo: r.titulo,
+    projetoId: r.projeto_id,
+    youtubeVideoId: r.youtube_video_id,
+    artistaId: artistaPorProjeto.get(r.projeto_id) ?? null,
+  }));
+}
+
+// Contagem rápida (head-only, sem baixar linhas) de quantas faixas já têm
+// vídeo do YouTube vinculado vs. quantas ainda não — usado no selo do botão
+// de sincronização para mostrar o que falta vincular.
+export async function contarStatusYoutube(): Promise<{ comVideo: number; semVideo: number }> {
+  const supabase = await createClient();
+  const { count: total, error: totalError } = await supabase
+    .from("faixas")
+    .select("id", { count: "exact", head: true });
+  if (totalError) throw totalError;
+
+  const { count: comVideo, error: comVideoError } = await supabase
+    .from("faixas")
+    .select("id", { count: "exact", head: true })
+    .not("youtube_video_id", "is", null);
+  if (comVideoError) throw comVideoError;
+
+  return { comVideo: comVideo ?? 0, semVideo: (total ?? 0) - (comVideo ?? 0) };
 }

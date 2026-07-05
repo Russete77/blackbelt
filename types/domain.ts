@@ -24,6 +24,8 @@ export interface Projeto {
 export interface Faixa {
   id: string; projetoId: string; titulo: string; genero?: string; estagio: EstagioPipeline;
   capaUrl?: string; letra?: string;
+  // Vídeo do YouTube vinculado (id de 11 chars) — usado para puxar views reais em lib/metricas.
+  youtubeVideoId?: string;
 }
 export interface VersaoFaixa {
   id: string; faixaId: string; tipo: TipoVersao; rotulo: string;

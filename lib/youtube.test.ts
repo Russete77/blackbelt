@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach, vi } from "vitest";
-import { buscarViewCountYoutube, youtubeConfigurado } from "./youtube";
+import { buscarViewCountYoutube, youtubeConfigurado, extrairYoutubeVideoId } from "./youtube";
 
 const ORIGINAL_ENV = process.env.YOUTUBE_API_KEY;
 
@@ -74,5 +74,74 @@ describe("buscarViewCountYoutube", () => {
 
     await expect(buscarViewCountYoutube("   ")).resolves.toBeNull();
     expect(fetchSpy).not.toHaveBeenCalled();
+  });
+});
+
+describe("extrairYoutubeVideoId", () => {
+  const ID = "dQw4w9WgXcQ";
+
+  it("aceita um id de 11 caracteres solto", () => {
+    expect(extrairYoutubeVideoId(ID)).toBe(ID);
+  });
+
+  it("ignora espaços em volta do id solto", () => {
+    expect(extrairYoutubeVideoId(`  ${ID}  `)).toBe(ID);
+  });
+
+  it("extrai de youtube.com/watch?v=ID", () => {
+    expect(extrairYoutubeVideoId(`https://www.youtube.com/watch?v=${ID}`)).toBe(ID);
+  });
+
+  it("extrai de watch com parâmetros extras (t, list)", () => {
+    expect(extrairYoutubeVideoId(`https://www.youtube.com/watch?v=${ID}&t=43s&list=PL123`)).toBe(ID);
+  });
+
+  it("extrai de youtu.be/ID", () => {
+    expect(extrairYoutubeVideoId(`https://youtu.be/${ID}`)).toBe(ID);
+  });
+
+  it("extrai de youtu.be/ID com query string", () => {
+    expect(extrairYoutubeVideoId(`https://youtu.be/${ID}?si=abc123`)).toBe(ID);
+  });
+
+  it("extrai de youtube.com/shorts/ID", () => {
+    expect(extrairYoutubeVideoId(`https://www.youtube.com/shorts/${ID}`)).toBe(ID);
+  });
+
+  it("extrai de shorts com query string", () => {
+    expect(extrairYoutubeVideoId(`https://youtube.com/shorts/${ID}?feature=share`)).toBe(ID);
+  });
+
+  it("extrai de youtube.com/embed/ID", () => {
+    expect(extrairYoutubeVideoId(`https://www.youtube.com/embed/${ID}`)).toBe(ID);
+  });
+
+  it("aceita m.youtube.com (versão mobile)", () => {
+    expect(extrairYoutubeVideoId(`https://m.youtube.com/watch?v=${ID}`)).toBe(ID);
+  });
+
+  it("aceita URL sem esquema (sem https://)", () => {
+    expect(extrairYoutubeVideoId(`youtube.com/watch?v=${ID}`)).toBe(ID);
+  });
+
+  it("string vazia: retorna null", () => {
+    expect(extrairYoutubeVideoId("")).toBeNull();
+    expect(extrairYoutubeVideoId("   ")).toBeNull();
+  });
+
+  it("texto que não é URL nem id válido: retorna null", () => {
+    expect(extrairYoutubeVideoId("isso não é um link")).toBeNull();
+  });
+
+  it("id curto demais: retorna null", () => {
+    expect(extrairYoutubeVideoId("abc")).toBeNull();
+  });
+
+  it("URL do YouTube sem vídeo (home): retorna null", () => {
+    expect(extrairYoutubeVideoId("https://www.youtube.com/")).toBeNull();
+  });
+
+  it("URL de outro site: retorna null", () => {
+    expect(extrairYoutubeVideoId(`https://vimeo.com/${ID}`)).toBeNull();
   });
 });
