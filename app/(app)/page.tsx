@@ -1,5 +1,5 @@
 import { HomeView } from "@/components/home/HomeView";
-import { getArtistas, getProjetosDoSelo, getFaixasDoProjeto, getSignedCoverUrl } from "@/lib/db";
+import { getArtistas, getProjetosDoSelo, getFaixasDosProjetos, getSignedCoverUrl } from "@/lib/db";
 import type { Artista, Projeto } from "@/types/domain";
 
 // Troca o caminho salvo no banco pela signed URL exibível (bucket privado).
@@ -14,15 +14,15 @@ async function comCapaAssinada(p: Projeto): Promise<Projeto> {
 
 export default async function Home() {
   const [artistas, projetosSelo] = await Promise.all([getArtistas(), getProjetosDoSelo()]);
-  const [artistasComFoto, projetosComFaixas] = await Promise.all([
+  const [artistasComFoto, faixasPorProjeto, projetosAssinados] = await Promise.all([
     Promise.all(artistas.map(comFotoAssinada)),
-    Promise.all(
-      projetosSelo.map(async (projeto) => ({
-        projeto: await comCapaAssinada(projeto),
-        faixas: await getFaixasDoProjeto(projeto.id),
-      })),
-    ),
+    getFaixasDosProjetos(projetosSelo.map((p) => p.id)),
+    Promise.all(projetosSelo.map(comCapaAssinada)),
   ]);
+  const projetosComFaixas = projetosAssinados.map((projeto) => ({
+    projeto,
+    faixas: faixasPorProjeto.get(projeto.id) ?? [],
+  }));
 
   return <HomeView artistas={artistasComFoto} projetosSelo={projetosComFaixas} />;
 }

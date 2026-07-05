@@ -1,8 +1,7 @@
 import { notFound } from "next/navigation";
-import { getFaixa, getVersoesDaFaixa, getComentariosDaVersao, getSignedCoverUrl } from "@/lib/db";
+import { getFaixa, getVersoesDaFaixa, getComentariosDeVersoes, getSignedCoverUrl } from "@/lib/db";
 import { createClient } from "@/lib/supabase/server";
 import { FaixaClient } from "@/components/faixa/FaixaClient";
-import type { Comentario } from "@/types/domain";
 
 export default async function FaixaPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -15,21 +14,17 @@ export default async function FaixaPage({ params }: { params: Promise<{ id: stri
   const { data: { user } } = await supabase.auth.getUser();
   const isAdmin = user?.app_metadata?.role === "admin";
 
-  // Resolve o caminho da capa (bucket privado) para uma signed URL exibível.
-  if (faixa.capaUrl) {
-    faixa.capaUrl = (await getSignedCoverUrl(faixa.capaUrl)) ?? undefined;
-  }
+  // Resolve a capa numa CÓPIA — getFaixa usa React.cache; mutar o objeto
+  // cacheado vazaria a signed URL para outros consumidores do request.
+  const capaAssinada = faixa.capaUrl ? (await getSignedCoverUrl(faixa.capaUrl)) ?? undefined : undefined;
+  const faixaExibida = { ...faixa, capaUrl: capaAssinada };
 
   const versoes = await getVersoesDaFaixa(faixa.id);
-  const listas = await Promise.all(versoes.map((v) => getComentariosDaVersao(v.id)));
-  const comentariosPorVersao: Record<string, Comentario[]> = {};
-  versoes.forEach((v, i) => {
-    comentariosPorVersao[v.id] = listas[i];
-  });
+  const comentariosPorVersao = await getComentariosDeVersoes(versoes.map((v) => v.id));
 
   return (
     <FaixaClient
-      faixa={faixa}
+      faixa={faixaExibida}
       versoes={versoes}
       comentariosPorVersao={comentariosPorVersao}
       isAdmin={isAdmin}

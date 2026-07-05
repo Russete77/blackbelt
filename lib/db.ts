@@ -213,8 +213,13 @@ export async function getProjetosDoSelo(): Promise<Projeto[]> {
   const supabase = await createClient();
   const { data: rows, error } = await supabase.from("projetos").select("*").order("created_at", { ascending: false });
   if (error) throw error;
+  if (!rows || rows.length === 0) return [];
 
-  const { data: vinculos, error: vError } = await supabase.from("projeto_artistas").select("projeto_id");
+  // Só os vínculos dos projetos buscados — não a tabela inteira.
+  const { data: vinculos, error: vError } = await supabase
+    .from("projeto_artistas")
+    .select("projeto_id")
+    .in("projeto_id", rows.map((r) => r.id));
   if (vError) throw vError;
 
   const comArtista = new Set((vinculos ?? []).map((v) => v.projeto_id));
@@ -237,6 +242,26 @@ export async function getFaixasDoProjeto(projetoId: string): Promise<Faixa[]> {
   return (data ?? []).map(mapFaixa);
 }
 
+// Versão batch: 1 query para N projetos (as listagens faziam 1 query por
+// projeto). Retorna mapa projetoId -> faixas, com [] para projetos sem faixa.
+export async function getFaixasDosProjetos(projetoIds: string[]): Promise<Map<string, Faixa[]>> {
+  const porProjeto = new Map<string, Faixa[]>(projetoIds.map((id) => [id, []]));
+  if (projetoIds.length === 0) return porProjeto;
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("faixas")
+    .select("*")
+    .in("projeto_id", projetoIds)
+    .order("created_at");
+  if (error) throw error;
+
+  for (const row of data ?? []) {
+    porProjeto.get(row.projeto_id)?.push(mapFaixa(row));
+  }
+  return porProjeto;
+}
+
 export async function getFaixa(id: string): Promise<Faixa | null> {
   const supabase = await createClient();
   const { data, error } = await supabase.from("faixas").select("*").eq("id", id).maybeSingle();
@@ -254,7 +279,8 @@ export async function getLancamentosDoArtista(artistaId: string): Promise<Faixa[
     .from("faixas")
     .select("*")
     .in("projeto_id", projetoIds)
-    .eq("estagio", "lancado");
+    .eq("estagio", "lancado")
+    .order("created_at", { ascending: false });
   if (error) throw error;
   return (data ?? []).map(mapFaixa);
 }
@@ -300,11 +326,24 @@ export async function getVersoesDaFaixa(faixaId: string): Promise<VersaoFaixa[]>
     .order("created_at");
   if (error) throw error;
 
-  return Promise.all(
-    (data ?? []).map(async (row) => {
-      const url = row.arquivo_path ? await getSignedAudioUrl(row.arquivo_path) : null;
-      return mapVersao(row, url);
-    }),
+  const rows = data ?? [];
+  // Assina todas as URLs numa chamada só (era 1 chamada de Storage por versão).
+  const paths = rows.map((r) => r.arquivo_path).filter((p): p is string => Boolean(p));
+  const urlPorPath = new Map<string, string | null>();
+  if (paths.length > 0) {
+    const { data: assinadas, error: signError } = await supabase.storage
+      .from("audio")
+      .createSignedUrls(paths, 3600);
+    if (signError) {
+      console.error("getVersoesDaFaixa/createSignedUrls:", signError.message);
+    }
+    for (const item of assinadas ?? []) {
+      if (item.path) urlPorPath.set(item.path, item.error ? null : item.signedUrl);
+    }
+  }
+
+  return rows.map((row) =>
+    mapVersao(row, row.arquivo_path ? (urlPorPath.get(row.arquivo_path) ?? null) : null),
   );
 }
 
@@ -313,11 +352,24 @@ export async function getVersoesDaFaixa(faixaId: string): Promise<VersaoFaixa[]>
 // ------------------------------------------------------------------
 
 export async function getComentariosDaVersao(versaoId: string): Promise<Comentario[]> {
+  const porVersao = await getComentariosDeVersoes([versaoId]);
+  return porVersao[versaoId] ?? [];
+}
+
+// Versão batch: 1 query de comentários + 1 de profiles para N versões
+// (a página da faixa fazia 2 queries por versão).
+export async function getComentariosDeVersoes(
+  versaoIds: string[],
+): Promise<Record<string, Comentario[]>> {
+  const porVersao: Record<string, Comentario[]> = {};
+  for (const id of versaoIds) porVersao[id] = [];
+  if (versaoIds.length === 0) return porVersao;
+
   const supabase = await createClient();
   const { data: rows, error } = await supabase
     .from("comentarios")
     .select("*")
-    .eq("versao_id", versaoId)
+    .in("versao_id", versaoIds)
     .order("timestamp_segundos");
   if (error) throw error;
 
@@ -332,7 +384,10 @@ export async function getComentariosDaVersao(versaoId: string): Promise<Comentar
     nomes = new Map((perfis ?? []).map((p) => [p.id, p.nome]));
   }
 
-  return (rows ?? []).map((r) => mapComentario(r, nomes.get(r.autor) ?? undefined));
+  for (const r of rows ?? []) {
+    porVersao[r.versao_id]?.push(mapComentario(r, nomes.get(r.autor) ?? undefined));
+  }
+  return porVersao;
 }
 
 // ------------------------------------------------------------------

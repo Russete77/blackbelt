@@ -1,7 +1,9 @@
 import { notFound } from "next/navigation";
+import { Disc3 } from "lucide-react";
 import { ProjetoCard } from "@/components/estudio/ProjetoCard";
 import { NovoProjetoForm } from "@/components/artista/NovoProjetoForm";
-import { getArtista, getProjetosDoArtista, getFaixasDoProjeto, getSignedCoverUrl } from "@/lib/db";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { getArtista, getProjetosDoArtista, getFaixasDosProjetos, getSignedCoverUrl } from "@/lib/db";
 
 export default async function ArtistaProjetosPage({
   params,
@@ -13,12 +15,13 @@ export default async function ArtistaProjetosPage({
   if (!artista) return notFound();
 
   const projetos = await getProjetosDoArtista(artista.id);
+  const faixasPorProjeto = await getFaixasDosProjetos(projetos.map((p) => p.id));
   const projetosComFaixas = await Promise.all(
     projetos.map(async (projeto) => ({
       projeto: projeto.capaUrl
         ? { ...projeto, capaUrl: (await getSignedCoverUrl(projeto.capaUrl)) ?? undefined }
         : projeto,
-      faixas: await getFaixasDoProjeto(projeto.id),
+      faixas: faixasPorProjeto.get(projeto.id) ?? [],
     })),
   );
 
@@ -30,10 +33,17 @@ export default async function ArtistaProjetosPage({
       </div>
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         {projetosComFaixas.length === 0 && (
-          <p className="text-sm text-muted">Nenhum projeto cadastrado ainda para {artista.nome}.</p>
+          <EmptyState
+            className="md:col-span-2 xl:col-span-3"
+            icon={Disc3}
+            title={`Nenhum projeto cadastrado ainda para ${artista.nome}.`}
+            hint="Crie o primeiro projeto (single, EP ou álbum) para começar a subir faixas."
+          />
         )}
-        {projetosComFaixas.map(({ projeto, faixas }) => (
-          <ProjetoCard key={projeto.id} projeto={projeto} faixas={faixas} />
+        {projetosComFaixas.map(({ projeto, faixas }, i) => (
+          <div key={projeto.id} className="animate-fade-in-up" style={{ animationDelay: `${i * 40}ms` }}>
+            <ProjetoCard projeto={projeto} faixas={faixas} />
+          </div>
         ))}
       </div>
     </div>

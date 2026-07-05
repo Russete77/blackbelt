@@ -1,22 +1,33 @@
+import { Disc3 } from "lucide-react";
 import { ProjetoCard } from "@/components/estudio/ProjetoCard";
-import { getTodosProjetos, getFaixasDoProjeto } from "@/lib/db";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { getTodosProjetos, getFaixasDosProjetos } from "@/lib/db";
 
 export default async function EstudioPage() {
   const projetos = await getTodosProjetos();
-  const projetosComFaixas = await Promise.all(
-    projetos.map(async (projeto) => ({ projeto, faixas: await getFaixasDoProjeto(projeto.id) })),
-  );
+  const faixasPorProjeto = await getFaixasDosProjetos(projetos.map((p) => p.id));
+  const projetosComFaixas = projetos.map((projeto) => ({
+    projeto,
+    faixas: faixasPorProjeto.get(projeto.id) ?? [],
+  }));
 
   return (
     <div className="p-4 md:p-6">
-      <h1 className="text-2xl font-bold mb-1">Estúdio</h1>
-      <p className="text-muted mb-6 text-sm">Todos os projetos e faixas em produção no selo.</p>
+      <h1 className="mb-1 font-display text-2xl uppercase tracking-tight md:text-3xl">Estúdio</h1>
+      <p className="mb-6 text-sm text-muted">Todos os projetos e faixas em produção no selo.</p>
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         {projetosComFaixas.length === 0 && (
-          <p className="text-sm text-muted">Nenhum projeto cadastrado ainda.</p>
+          <EmptyState
+            className="md:col-span-2 xl:col-span-3"
+            icon={Disc3}
+            title="Nenhum projeto cadastrado ainda."
+            hint="Projetos criados em qualquer artista aparecem aqui, reunidos por estágio de produção."
+          />
         )}
-        {projetosComFaixas.map(({ projeto, faixas }) => (
-          <ProjetoCard key={projeto.id} projeto={projeto} faixas={faixas} />
+        {projetosComFaixas.map(({ projeto, faixas }, i) => (
+          <div key={projeto.id} className="animate-fade-in-up" style={{ animationDelay: `${i * 40}ms` }}>
+            <ProjetoCard projeto={projeto} faixas={faixas} />
+          </div>
         ))}
       </div>
     </div>
