@@ -25,12 +25,19 @@ export function FaixaClient({ faixa, versoes, comentariosPorVersao, isAdmin = fa
   const ultimaVersao = versoes[versoes.length - 1];
   const { versaoAtual, duracao, tempoAtual } = usePlayer();
   // Tempo (s) capturado pelo clique na onda ou pelo playhead — abre o form.
-  const [tsComentario, setTsComentario] = useState<number | null>(null);
+  // Guarda junto a versão a que pertence: trocar de versão descarta o form
+  // (senão o comentário iria para a versão errada, com timestamp herdado).
+  const [comentarioPendente, setComentarioPendente] =
+    useState<{ versaoId: string; ts: number } | null>(null);
   // Com zoom, a onda rola horizontalmente e os pinos (posição em %) desalinham
   // — escondemos até voltar ao ajuste automático.
   const [zoomAtivo, setZoomAtivo] = useState(false);
   const versaoExibida = versaoAtual?.faixaId === faixa.id ? versaoAtual : ultimaVersao;
   const comentarios = versaoExibida ? (comentariosPorVersao[versaoExibida.id] ?? []) : [];
+  const tsComentario =
+    comentarioPendente && comentarioPendente.versaoId === versaoExibida?.id
+      ? comentarioPendente.ts
+      : null;
 
   const capa = faixa.capaUrl ? (
     // eslint-disable-next-line @next/next/no-img-element
@@ -90,7 +97,8 @@ export function FaixaClient({ faixa, versoes, comentariosPorVersao, isAdmin = fa
             versaoId={versaoExibida.id}
             arquivoUrl={versaoExibida.arquivoUrl}
             height={112}
-            onInteraction={(segundos) => setTsComentario(segundos)}
+            onInteraction={(segundos) =>
+              setComentarioPendente({ versaoId: versaoExibida.id, ts: segundos })}
             onZoomAtivo={setZoomAtivo}
           />
         </div>
@@ -101,7 +109,11 @@ export function FaixaClient({ faixa, versoes, comentariosPorVersao, isAdmin = fa
 
       <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-lg font-semibold">Comentários</h2>
-        <Button variant="outline" size="sm" onClick={() => setTsComentario(tempoAtual)}>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setComentarioPendente({ versaoId: versaoExibida.id, ts: tempoAtual })}
+        >
           <MessageSquarePlus className="h-4 w-4" aria-hidden />
           Adicionar comentário aqui
         </Button>
@@ -111,7 +123,7 @@ export function FaixaClient({ faixa, versoes, comentariosPorVersao, isAdmin = fa
           <NovoComentario
             versaoId={versaoExibida.id}
             timestampSegundos={tsComentario}
-            onFechar={() => setTsComentario(null)}
+            onFechar={() => setComentarioPendente(null)}
           />
         </div>
       )}
