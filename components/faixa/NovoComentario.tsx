@@ -7,6 +7,9 @@ import { useRouter } from "next/navigation";
 import { MessageSquarePlus, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/Button";
+import { Field } from "@/components/ui/Field";
+import { Textarea } from "@/components/ui/Textarea";
+import { Select } from "@/components/ui/Select";
 import { formatTempo } from "@/components/player/format";
 import type { CategoriaComentario, Prioridade } from "@/types/domain";
 
@@ -65,7 +68,7 @@ export function NovoComentario({
   }
 
   return (
-    <form onSubmit={salvar} className="rounded-lg border border-line bg-surface p-4">
+    <form onSubmit={salvar} className="animate-fade-in-up rounded-lg border border-line bg-surface p-4 shadow-lg shadow-black/20">
       <div className="mb-3 flex items-center justify-between">
         <h3 className="inline-flex items-center gap-2 text-sm font-semibold">
           <MessageSquarePlus className="h-4 w-4 text-accent" aria-hidden />
@@ -75,46 +78,35 @@ export function NovoComentario({
           type="button"
           onClick={onFechar}
           aria-label="Fechar"
-          className="text-muted hover:text-fg transition"
+          className="rounded-md p-1.5 text-muted transition-colors duration-200 hover:bg-surface2 hover:text-fg"
         >
           <X className="h-4 w-4" aria-hidden />
         </button>
       </div>
 
       <div className="flex flex-col gap-3">
-        <textarea
+        <Textarea
           value={texto}
           onChange={(e) => setTexto(e.target.value)}
           required
           rows={3}
           placeholder="O que precisa mudar neste ponto?"
-          className="resize-none rounded-md border border-line bg-surface2 px-3 py-2 text-sm text-fg outline-none placeholder:text-muted focus:border-accent"
         />
         <div className="flex flex-wrap gap-3">
-          <label className="flex flex-1 flex-col gap-1 text-xs text-muted">
-            Categoria
-            <select
-              value={categoria}
-              onChange={(e) => setCategoria(e.target.value as CategoriaComentario)}
-              className="rounded-md border border-line bg-surface2 px-3 py-2 text-sm text-fg outline-none focus:border-accent"
-            >
+          <Field label="Categoria">
+            <Select value={categoria} onChange={(e) => setCategoria(e.target.value as CategoriaComentario)}>
               {CATEGORIAS.map((c) => (
                 <option key={c} value={c}>{LABEL_CATEGORIA[c]}</option>
               ))}
-            </select>
-          </label>
-          <label className="flex flex-1 flex-col gap-1 text-xs text-muted">
-            Prioridade
-            <select
-              value={prioridade}
-              onChange={(e) => setPrioridade(e.target.value as Prioridade)}
-              className="rounded-md border border-line bg-surface2 px-3 py-2 text-sm text-fg outline-none focus:border-accent"
-            >
+            </Select>
+          </Field>
+          <Field label="Prioridade">
+            <Select value={prioridade} onChange={(e) => setPrioridade(e.target.value as Prioridade)}>
               {PRIORIDADES.map((p) => (
                 <option key={p} value={p}>{LABEL_PRIORIDADE[p]}</option>
               ))}
-            </select>
-          </label>
+            </Select>
+          </Field>
         </div>
         <Button type="submit" size="sm" disabled={salvando}>
           {salvando ? "Salvando..." : "Salvar comentário"}

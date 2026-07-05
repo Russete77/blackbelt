@@ -7,6 +7,9 @@ import { useRouter } from "next/navigation";
 import { Upload, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/Button";
+import { Field } from "@/components/ui/Field";
+import { Input } from "@/components/ui/Input";
+import { Select } from "@/components/ui/Select";
 import { labelTipoVersao } from "@/lib/labels";
 import type { TipoVersao } from "@/types/domain";
 
@@ -114,51 +117,37 @@ export function UploadVersao({ faixaId }: { faixaId: string }) {
   }
 
   return (
-    <form onSubmit={enviar} className="w-full max-w-md rounded-lg border border-line bg-surface p-4">
+    <form onSubmit={enviar} className="w-full max-w-md animate-fade-in-up rounded-lg border border-line bg-surface p-4 shadow-lg shadow-black/20">
       <div className="mb-3 flex items-center justify-between">
         <h3 className="text-sm font-semibold">Subir versão</h3>
         <button
           type="button"
           onClick={() => setAberto(false)}
           aria-label="Fechar"
-          className="text-muted hover:text-fg transition"
+          className="rounded-md p-1.5 text-muted transition-colors duration-200 hover:bg-surface2 hover:text-fg"
         >
           <X className="h-4 w-4" aria-hidden />
         </button>
       </div>
 
       <div className="flex flex-col gap-3">
-        <label className="flex flex-col gap-1 text-xs text-muted">
-          Arquivo de áudio
-          <input
-            ref={inputRef}
-            type="file"
-            accept="audio/*"
-            required
-            className="rounded-md border border-line bg-surface2 px-3 py-2 text-sm text-fg file:mr-3 file:rounded-md file:border-0 file:bg-accent file:px-3 file:py-1 file:text-xs file:font-medium file:text-accent-fg"
-          />
-        </label>
-        <label className="flex flex-col gap-1 text-xs text-muted">
-          Tipo
-          <select
-            value={tipo}
-            onChange={(e) => setTipo(e.target.value as TipoVersao)}
-            className="rounded-md border border-line bg-surface2 px-3 py-2 text-sm text-fg outline-none focus:border-accent"
-          >
+        <Field label="Arquivo de áudio">
+          <Input ref={inputRef} type="file" accept="audio/*" required />
+        </Field>
+        <Field label="Tipo">
+          <Select value={tipo} onChange={(e) => setTipo(e.target.value as TipoVersao)}>
             {TIPOS.map((t) => (
               <option key={t} value={t}>{labelTipoVersao(t)}</option>
             ))}
-          </select>
-        </label>
-        <label className="flex flex-col gap-1 text-xs text-muted">
-          Rótulo
-          <input
+          </Select>
+        </Field>
+        <Field label="Rótulo">
+          <Input
             value={rotulo}
             onChange={(e) => setRotulo(e.target.value)}
             placeholder="Ex.: Mix v2"
-            className="rounded-md border border-line bg-surface2 px-3 py-2 text-sm text-fg outline-none placeholder:text-muted focus:border-accent"
           />
-        </label>
+        </Field>
         <Button type="submit" size="sm" disabled={enviando}>
           {enviando ? "Enviando..." : "Enviar versão"}
         </Button>

@@ -8,6 +8,7 @@ import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ImagePlus } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { cn } from "@/lib/cn";
 
 type TipoCapa = "artista" | "projeto" | "faixa";
 
@@ -73,12 +74,12 @@ export function CapaUploader({
   }
 
   return (
-    <span className={className}>
+    <span className={cn("inline-flex items-center", className)}>
       <button
         type="button"
         onClick={() => inputRef.current?.click()}
         disabled={enviando}
-        className="inline-flex items-center gap-1 rounded-md border border-line px-2 py-1 text-xs text-muted hover:text-accent hover:border-accent transition disabled:opacity-50"
+        className="inline-flex items-center gap-1.5 rounded-md border border-line px-2.5 py-1.5 text-xs font-medium text-muted transition-colors duration-200 hover:border-accent/50 hover:text-accent disabled:opacity-50"
       >
         <ImagePlus className="h-3.5 w-3.5" aria-hidden />
         {enviando ? "Enviando..." : rotulo}

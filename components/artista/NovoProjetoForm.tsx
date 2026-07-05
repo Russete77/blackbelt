@@ -5,6 +5,9 @@ import { useActionState, useState } from "react";
 import { usePathname } from "next/navigation";
 import { Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/Button";
+import { Field } from "@/components/ui/Field";
+import { Input } from "@/components/ui/Input";
+import { Select } from "@/components/ui/Select";
 import { criarProjeto, type EstadoAcao } from "@/app/(app)/actions";
 import { labelTipoProjeto } from "@/lib/labels";
 import type { TipoProjeto } from "@/types/domain";
@@ -37,7 +40,7 @@ export function NovoProjetoForm({ artistaId }: { artistaId: string }) {
   return (
     <form
       action={formAction}
-      className="w-full max-w-md rounded-lg border border-line bg-surface p-4"
+      className="w-full max-w-md animate-fade-in-up rounded-lg border border-line bg-surface p-4 shadow-lg shadow-black/20"
     >
       <div className="mb-3 flex items-center justify-between">
         <h3 className="text-sm font-semibold">Novo projeto</h3>
@@ -45,7 +48,7 @@ export function NovoProjetoForm({ artistaId }: { artistaId: string }) {
           type="button"
           onClick={() => setAberto(false)}
           aria-label="Fechar"
-          className="text-muted hover:text-fg transition"
+          className="rounded-md p-1.5 text-muted transition-colors duration-200 hover:bg-surface2 hover:text-fg"
         >
           <X className="h-4 w-4" aria-hidden />
         </button>
@@ -55,27 +58,16 @@ export function NovoProjetoForm({ artistaId }: { artistaId: string }) {
       <input type="hidden" name="caminho" value={caminho} />
 
       <div className="flex flex-col gap-3">
-        <label className="flex flex-col gap-1 text-xs text-muted">
-          Nome
-          <input
-            name="nome"
-            required
-            placeholder="Nome do projeto"
-            className="rounded-md border border-line bg-surface2 px-3 py-2 text-sm text-fg outline-none placeholder:text-muted focus:border-accent"
-          />
-        </label>
-        <label className="flex flex-col gap-1 text-xs text-muted">
-          Tipo
-          <select
-            name="tipo"
-            defaultValue="single"
-            className="rounded-md border border-line bg-surface2 px-3 py-2 text-sm text-fg outline-none focus:border-accent"
-          >
+        <Field label="Nome">
+          <Input name="nome" required placeholder="Nome do projeto" />
+        </Field>
+        <Field label="Tipo">
+          <Select name="tipo" defaultValue="single">
             {TIPOS.map((t) => (
               <option key={t} value={t}>{labelTipoProjeto(t)}</option>
             ))}
-          </select>
-        </label>
+          </Select>
+        </Field>
         <Button type="submit" size="sm" disabled={pendente}>
           {pendente ? "Criando..." : "Criar projeto"}
         </Button>

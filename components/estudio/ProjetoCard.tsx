@@ -1,9 +1,10 @@
 import Link from "next/link";
+import { Disc3, Music } from "lucide-react";
 import { Card, CardBody } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
+import { Cover } from "@/components/ui/Cover";
 import { NovaFaixaForm } from "@/components/estudio/NovaFaixaForm";
 import { CapaUploader } from "@/components/capa/CapaUploader";
-import { Disc3 } from "lucide-react";
 import { labelEstagio, labelTipoProjeto } from "@/lib/labels";
 import type { Faixa, Projeto } from "@/types/domain";
 
@@ -13,21 +14,10 @@ export function ProjetoCard({ projeto, faixas }: { projeto: Projeto; faixas: Fai
       <CardBody>
         <div className="flex items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-3">
-            {projeto.capaUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={projeto.capaUrl}
-                alt={`Capa de ${projeto.nome}`}
-                className="h-12 w-12 shrink-0 rounded-md object-cover"
-              />
-            ) : (
-              <div className="grid h-12 w-12 shrink-0 place-items-center rounded-md bg-surface2">
-                <Disc3 className="h-5 w-5 text-muted" aria-hidden />
-              </div>
-            )}
+            <Cover src={projeto.capaUrl} alt={`Capa de ${projeto.nome}`} icon={Disc3} size="sm" />
             <div className="min-w-0">
-              <h3 className="font-semibold truncate">{projeto.nome}</h3>
-              <p className="text-xs text-muted truncate">
+              <h3 className="truncate font-semibold">{projeto.nome}</h3>
+              <p className="truncate text-xs text-muted">
                 {labelTipoProjeto(projeto.tipo)}
                 {projeto.artistas.length > 0 ? ` · ${projeto.artistas.join(", ")}` : " · Selo"}
               </p>
@@ -36,13 +26,18 @@ export function ProjetoCard({ projeto, faixas }: { projeto: Projeto; faixas: Fai
           <Badge tone="accent">{labelEstagio(projeto.statusGeral)}</Badge>
         </div>
         <ul className="mt-4 divide-y divide-line">
-          {faixas.length === 0 && <li className="py-2 text-sm text-muted">Nenhuma faixa ainda.</li>}
+          {faixas.length === 0 && (
+            <li className="flex items-center gap-2 py-3 text-sm text-muted">
+              <Music className="h-4 w-4 shrink-0" aria-hidden />
+              Nenhuma faixa ainda.
+            </li>
+          )}
           {faixas.map((f) => (
             <li key={f.id}>
               <Link href={`/faixa/${f.id}`}
-                className="flex items-center justify-between py-2 text-sm hover:text-accent">
-                <span>{f.titulo}</span>
-                <span className="text-xs text-muted">{labelEstagio(f.estagio)}</span>
+                className="flex items-center justify-between gap-3 py-2.5 text-sm transition-colors duration-200 hover:text-accent">
+                <span className="truncate">{f.titulo}</span>
+                <span className="shrink-0 text-xs text-muted">{labelEstagio(f.estagio)}</span>
               </Link>
             </li>
           ))}

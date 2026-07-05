@@ -9,6 +9,8 @@ import { UploadVersao } from "@/components/faixa/UploadVersao";
 import { CapaUploader } from "@/components/capa/CapaUploader";
 import { NovoComentario } from "@/components/faixa/NovoComentario";
 import { Button } from "@/components/ui/Button";
+import { Cover } from "@/components/ui/Cover";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { MessageSquarePlus, Music } from "lucide-react";
 import { labelEstagio } from "@/lib/labels";
 import type { Comentario, Faixa, VersaoFaixa } from "@/types/domain";
@@ -39,50 +41,46 @@ export function FaixaClient({ faixa, versoes, comentariosPorVersao, isAdmin = fa
       ? comentarioPendente.ts
       : null;
 
-  const capa = faixa.capaUrl ? (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img
-      src={faixa.capaUrl}
-      alt={`Capa de ${faixa.titulo}`}
-      className="h-16 w-16 shrink-0 rounded-md object-cover"
-    />
-  ) : (
-    <div className="grid h-16 w-16 shrink-0 place-items-center rounded-md bg-surface2">
-      <Music className="h-6 w-6 text-muted" aria-hidden />
-    </div>
-  );
+  const capa = <Cover src={faixa.capaUrl} alt={`Capa de ${faixa.titulo}`} icon={Music} size="md" />;
 
   if (!ultimaVersao) {
     return (
-      <div className="p-4 md:p-6 max-w-3xl mx-auto">
+      <div className="mx-auto max-w-3xl p-4 md:p-6">
         <div className="mb-6 flex items-center gap-4">
           {capa}
-          <div>
-            <h1 className="text-2xl font-bold">{faixa.titulo}</h1>
-            <p className="text-muted text-sm">
-              {faixa.genero} · {labelEstagio(faixa.estagio)}
+          <div className="min-w-0">
+            <h1 className="truncate font-display text-2xl uppercase tracking-tight md:text-3xl">{faixa.titulo}</h1>
+            <p className="text-sm text-muted">
+              {[faixa.genero, labelEstagio(faixa.estagio)].filter(Boolean).join(" · ")}
             </p>
-            <CapaUploader tipo="faixa" id={faixa.id} rotulo="Capa" className="mt-1 inline-block" />
+            <CapaUploader tipo="faixa" id={faixa.id} rotulo="Capa" className="mt-1.5 inline-block" />
           </div>
         </div>
-        <p className="text-sm text-muted mb-4">Nenhuma versão enviada ainda para esta faixa.</p>
+        <EmptyState
+          icon={Music}
+          title="Nenhuma versão enviada ainda para esta faixa."
+          hint="Suba um beat, vocal, mix ou master para começar a colaborar."
+          className="mb-4"
+        />
         <UploadVersao faixaId={faixa.id} />
       </div>
     );
   }
 
   return (
-    <div className="p-4 md:p-6 max-w-3xl mx-auto">
+    <div className="mx-auto max-w-3xl p-4 md:p-6">
       <AutoPlay versao={ultimaVersao} faixaTitulo={faixa.titulo} versoesIrmas={versoes} />
-      <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
+      <div className="mb-6 flex flex-wrap items-start justify-between gap-3 animate-fade-in-up">
         <div className="flex items-center gap-4">
           {capa}
-          <div>
-            <h1 className="text-2xl font-bold">{faixa.titulo}</h1>
-            <p className="text-muted text-sm">
-              {faixa.genero} · {labelEstagio(faixa.estagio)} · {versaoExibida.rotulo}
+          <div className="min-w-0">
+            <h1 className="truncate font-display text-2xl uppercase tracking-tight md:text-3xl">{faixa.titulo}</h1>
+            <p className="truncate text-sm text-muted">
+              {[faixa.genero, labelEstagio(faixa.estagio), versaoExibida.rotulo]
+                .filter(Boolean)
+                .join(" · ")}
             </p>
-            <CapaUploader tipo="faixa" id={faixa.id} rotulo="Capa" className="mt-1 inline-block" />
+            <CapaUploader tipo="faixa" id={faixa.id} rotulo="Capa" className="mt-1.5 inline-block" />
           </div>
         </div>
         <UploadVersao faixaId={faixa.id} />
@@ -103,7 +101,7 @@ export function FaixaClient({ faixa, versoes, comentariosPorVersao, isAdmin = fa
           />
         </div>
       </div>
-      <p className="text-xs text-muted mb-6">
+      <p className="mb-6 text-xs text-muted">
         Clique na onda para navegar e comentar naquele ponto. Os pinos dourados são comentários.
       </p>
 
