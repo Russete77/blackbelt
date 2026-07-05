@@ -75,7 +75,11 @@ async function garantirProjeto(
 
 // Passthrough server-side: a Deezer API não manda cabeçalhos CORS, então a
 // busca não pode ser feita direto do browser — precisa passar pelo servidor.
+// Sessão validada aqui mesmo (anônimo não usa o servidor como proxy de busca).
 export async function buscarCandidatosDeezer(nome: string): Promise<CandidatoArtistaDeezer[]> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return [];
   return buscarArtistasDeezer(nome);
 }
 
@@ -330,8 +334,10 @@ export async function sincronizarCanalYoutube(
   };
 }
 
-// Upsert manual de metricas por (faixa, plataforma=youtube, dia) — sem
-// constraint única na tabela, lê antes de decidir entre update/insert.
+// Snapshot de views por (faixa, plataforma=youtube): mantém UMA linha viva
+// com a leitura mais recente. O viewCount é um total acumulado — uma linha
+// por dia fazia as agregações (que somam linhas) inflarem os streams a cada
+// sync (mesmo racional de analytics/actions.ts:sincronizarYoutubeTudo).
 async function upsertMetricaYoutube(
   supabase: SupabaseServerClient,
   faixaId: string,
@@ -344,14 +350,15 @@ async function upsertMetricaYoutube(
     .select("id")
     .eq("faixa_id", faixaId)
     .eq("plataforma", "youtube")
-    .eq("data", data)
+    .order("data", { ascending: false })
+    .limit(1)
     .maybeSingle();
   if (buscaError) return false;
 
   if (existente) {
     const { error } = await supabase
       .from("metricas")
-      .update({ streams: viewCount, artista_id: artistaId })
+      .update({ streams: viewCount, data, artista_id: artistaId })
       .eq("id", existente.id);
     return !error;
   }
@@ -370,9 +377,13 @@ async function upsertMetricaYoutube(
 // ------------------------------------------------------------------
 
 // Passthrough server-side: search.list exige a chave da API, que não pode
-// vazar pro client.
+// vazar pro client. Sessão validada aqui mesmo — cada chamada custa 100
+// unidades da quota diária (10k) e não pode depender só do proxy.
 export async function buscarFootprintYoutube(termo: string): Promise<VideoBuscaYoutube[]> {
   if (!youtubeConfigurado()) return [];
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return [];
   return buscarVideosArtistaYoutube(termo, 25);
 }
 

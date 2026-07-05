@@ -235,14 +235,36 @@ export async function sincronizarViewsYoutube(
     };
   }
 
+  // Snapshot acumulado: mantém UMA linha viva por (artista, faixa,
+  // plataforma) — insert puro criava uma linha nova com o TOTAL do vídeo
+  // a cada clique, e as agregações somavam tudo.
   const hoje = new Date().toISOString().slice(0, 10);
-  const { error } = await supabase.from("metricas").insert({
-    artista_id: artistaId,
-    faixa_id: faixaId,
-    plataforma: "youtube",
-    data: hoje,
-    streams: estatisticas.viewCount,
-  });
+  let busca = supabase
+    .from("metricas")
+    .select("id")
+    .eq("artista_id", artistaId)
+    .eq("plataforma", "youtube");
+  busca = faixaId ? busca.eq("faixa_id", faixaId) : busca.is("faixa_id", null);
+  const { data: existente, error: buscaError } = await busca
+    .order("data", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (buscaError) {
+    return { status: "error", message: "Não foi possível salvar a métrica. Tente novamente." };
+  }
+
+  const { error } = existente
+    ? await supabase
+        .from("metricas")
+        .update({ streams: estatisticas.viewCount, data: hoje })
+        .eq("id", existente.id)
+    : await supabase.from("metricas").insert({
+        artista_id: artistaId,
+        faixa_id: faixaId,
+        plataforma: "youtube",
+        data: hoje,
+        streams: estatisticas.viewCount,
+      });
   if (error) {
     return { status: "error", message: "Não foi possível salvar a métrica. Tente novamente." };
   }
@@ -269,10 +291,11 @@ export interface EstadoSincronizacaoYoutube {
 const ESTADO_SINCRONIZACAO_INICIAL: EstadoSincronizacaoYoutube = { status: "idle" };
 
 // Para cada faixa com youtube_video_id vinculado: busca o viewCount atual e
-// grava/atualiza a métrica do dia (plataforma "youtube"). Upsert manual por
-// (faixa, plataforma, dia) — sem constraint única na tabela, então lemos
-// antes de decidir entre update e insert (evita duplicar uma linha por dia
-// a cada clique no botão).
+// mantém UMA linha viva por (faixa, plataforma "youtube") com a leitura mais
+// recente. O viewCount do YouTube é um TOTAL ACUMULADO — gravar uma linha
+// por dia fazia as agregações (que somam linhas) inflarem os streams a cada
+// sincronização: 30 dias ≈ 30× as views reais, contaminando receita estimada
+// e recebimento por split. Snapshot se substitui, não se soma.
 export async function sincronizarYoutubeTudo(
   _estado: EstadoSincronizacaoYoutube,
   formData: FormData,
@@ -312,7 +335,8 @@ export async function sincronizarYoutubeTudo(
       .select("id")
       .eq("faixa_id", faixa.id)
       .eq("plataforma", "youtube")
-      .eq("data", hoje)
+      .order("data", { ascending: false })
+      .limit(1)
       .maybeSingle();
     if (buscaError) {
       erros.push(`"${faixa.titulo}": falha ao verificar métrica existente.`);
@@ -320,9 +344,13 @@ export async function sincronizarYoutubeTudo(
     }
 
     if (existente) {
+      // Nunca sobrescrever um artista_id válido com null (faixa de projeto
+      // do Selo sem vínculo devolve artistaId null).
+      const patch: Record<string, unknown> = { streams: estatisticas.viewCount, data: hoje };
+      if (faixa.artistaId) patch.artista_id = faixa.artistaId;
       const { error } = await supabase
         .from("metricas")
-        .update({ streams: estatisticas.viewCount, artista_id: faixa.artistaId })
+        .update(patch)
         .eq("id", existente.id);
       if (error) {
         erros.push(`"${faixa.titulo}": falha ao atualizar a métrica.`);
