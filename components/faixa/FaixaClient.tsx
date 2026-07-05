@@ -1,4 +1,5 @@
 "use client";
+import { useState } from "react";
 import { AutoPlay } from "@/components/faixa/AutoPlay";
 import { Waveform } from "@/components/player/Waveform";
 import { usePlayer } from "@/components/player/PlayerContext";
@@ -6,7 +7,9 @@ import { CommentPin } from "@/components/faixa/CommentPin";
 import { ListaComentarios } from "@/components/faixa/ListaComentarios";
 import { UploadVersao } from "@/components/faixa/UploadVersao";
 import { CapaUploader } from "@/components/capa/CapaUploader";
-import { Music } from "lucide-react";
+import { NovoComentario } from "@/components/faixa/NovoComentario";
+import { Button } from "@/components/ui/Button";
+import { MessageSquarePlus, Music } from "lucide-react";
 import { labelEstagio } from "@/lib/labels";
 import type { Comentario, Faixa, VersaoFaixa } from "@/types/domain";
 
@@ -18,7 +21,9 @@ interface FaixaClientProps {
 
 export function FaixaClient({ faixa, versoes, comentariosPorVersao }: FaixaClientProps) {
   const ultimaVersao = versoes[versoes.length - 1];
-  const { versaoAtual, duracao } = usePlayer();
+  const { versaoAtual, duracao, tempoAtual } = usePlayer();
+  // Tempo (s) capturado pelo clique na onda ou pelo playhead — abre o form.
+  const [tsComentario, setTsComentario] = useState<number | null>(null);
   const versaoExibida = versaoAtual?.faixaId === faixa.id ? versaoAtual : ultimaVersao;
   const comentarios = versaoExibida ? (comentariosPorVersao[versaoExibida.id] ?? []) : [];
 
@@ -76,12 +81,34 @@ export function FaixaClient({ faixa, versoes, comentariosPorVersao }: FaixaClien
           {comentarios.map((c) => (
             <CommentPin key={c.id} comentario={c} duracao={duracao || versaoExibida.duracaoSegundos} />
           ))}
-          <Waveform versaoId={versaoExibida.id} arquivoUrl={versaoExibida.arquivoUrl} height={112} />
+          <Waveform
+            versaoId={versaoExibida.id}
+            arquivoUrl={versaoExibida.arquivoUrl}
+            height={112}
+            onInteraction={(segundos) => setTsComentario(segundos)}
+          />
         </div>
       </div>
-      <p className="text-xs text-muted mb-6">Clique na onda para navegar. Os pinos dourados são comentários.</p>
+      <p className="text-xs text-muted mb-6">
+        Clique na onda para navegar e comentar naquele ponto. Os pinos dourados são comentários.
+      </p>
 
-      <h2 className="text-lg font-semibold mb-3">Comentários</h2>
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+        <h2 className="text-lg font-semibold">Comentários</h2>
+        <Button variant="outline" size="sm" onClick={() => setTsComentario(tempoAtual)}>
+          <MessageSquarePlus className="h-4 w-4" aria-hidden />
+          Adicionar comentário aqui
+        </Button>
+      </div>
+      {tsComentario !== null && (
+        <div className="mb-4">
+          <NovoComentario
+            versaoId={versaoExibida.id}
+            timestampSegundos={tsComentario}
+            onFechar={() => setTsComentario(null)}
+          />
+        </div>
+      )}
       <ListaComentarios comentarios={comentarios} />
     </div>
   );

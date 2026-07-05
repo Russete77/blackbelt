@@ -1,7 +1,7 @@
 "use client";
 // Formulário compacto de "Nova faixa" dentro do card do projeto.
 // Submete via Server Action (criarFaixa) — a escrita passa pelo RLS.
-import { useActionState, useEffect, useState } from "react";
+import { useActionState, useState } from "react";
 import { usePathname } from "next/navigation";
 import { Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/Button";
@@ -12,11 +12,15 @@ const ESTADO_INICIAL: EstadoAcao = { status: "idle" };
 export function NovaFaixaForm({ projetoId }: { projetoId: string }) {
   const caminho = usePathname();
   const [aberto, setAberto] = useState(false);
-  const [estado, formAction, pendente] = useActionState(criarFaixa, ESTADO_INICIAL);
-
-  useEffect(() => {
-    if (estado.status === "ok") setAberto(false);
-  }, [estado]);
+  // Envolve a Server Action para fechar o form no sucesso (sem useEffect).
+  const [estado, formAction, pendente] = useActionState(
+    async (prev: EstadoAcao, formData: FormData) => {
+      const resultado = await criarFaixa(prev, formData);
+      if (resultado.status === "ok") setAberto(false);
+      return resultado;
+    },
+    ESTADO_INICIAL,
+  );
 
   if (!aberto) {
     return (

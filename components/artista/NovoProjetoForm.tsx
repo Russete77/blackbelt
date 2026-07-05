@@ -1,7 +1,7 @@
 "use client";
 // Botão + formulário inline para criar um projeto vinculado ao artista.
 // Submete via Server Action (criarProjeto) — a escrita passa pelo RLS.
-import { useActionState, useEffect, useState } from "react";
+import { useActionState, useState } from "react";
 import { usePathname } from "next/navigation";
 import { Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/Button";
@@ -15,11 +15,15 @@ const TIPOS: TipoProjeto[] = ["single", "ep", "album", "feat"];
 export function NovoProjetoForm({ artistaId }: { artistaId: string }) {
   const caminho = usePathname();
   const [aberto, setAberto] = useState(false);
-  const [estado, formAction, pendente] = useActionState(criarProjeto, ESTADO_INICIAL);
-
-  useEffect(() => {
-    if (estado.status === "ok") setAberto(false);
-  }, [estado]);
+  // Envolve a Server Action para fechar o form no sucesso (sem useEffect).
+  const [estado, formAction, pendente] = useActionState(
+    async (prev: EstadoAcao, formData: FormData) => {
+      const resultado = await criarProjeto(prev, formData);
+      if (resultado.status === "ok") setAberto(false);
+      return resultado;
+    },
+    ESTADO_INICIAL,
+  );
 
   if (!aberto) {
     return (
