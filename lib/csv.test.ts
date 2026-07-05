@@ -67,6 +67,14 @@ describe("parseNumeroPtBR", () => {
     expect(parseNumeroPtBR("")).toBeNull();
     expect(parseNumeroPtBR("abc")).toBeNull();
   });
+  it("milhar en-US puro (grupos de 3) não vira decimal", () => {
+    expect(parseNumeroPtBR("1,234")).toBe(1234);
+    expect(parseNumeroPtBR("1,234,567")).toBe(1234567);
+  });
+  it("vírgula com grupo ≠ 3 dígitos continua decimal pt-BR", () => {
+    expect(parseNumeroPtBR("1234,56")).toBeCloseTo(1234.56);
+    expect(parseNumeroPtBR("12,5")).toBeCloseTo(12.5);
+  });
 });
 
 describe("parseDataCSV", () => {
@@ -87,6 +95,15 @@ describe("parseDataCSV", () => {
 });
 
 describe("detectarMapeamentoInicial", () => {
+  it("não mapeia dois campos para a mesma coluna", () => {
+    // "Data de pagamento" casa "data" e casaria "receita" ("pagamento") —
+    // a coluna ocupada não pode ser reusada.
+    const headers = ["Plataforma", "Data de pagamento", "Streams"];
+    const mapeamento = detectarMapeamentoInicial(headers);
+    expect(mapeamento.data).toBe(1);
+    expect(mapeamento.receita).toBeUndefined();
+  });
+
   it("casa cabeçalhos comuns em português", () => {
     const headers = ["Plataforma", "Data", "Streams", "Receita (R$)", "Artista", "Faixa"];
     expect(detectarMapeamentoInicial(headers)).toEqual({

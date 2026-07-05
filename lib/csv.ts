@@ -98,9 +98,16 @@ export function parseNumeroPtBR(valorBruto: string): number | null {
       normalizado = limpo.replace(/,/g, "");
     }
   } else if (temVirgula) {
-    // Só vírgula: decimal pt-BR ("1234,56"); vírgula de milhar ("1,234") é rara
-    // sem ponto — tratamos como decimal, o caso comum em receita/CSV nacional.
-    normalizado = limpo.replace(",", ".");
+    // Só vírgula: em geral é decimal pt-BR ("1234,56"). Exceção: padrão de
+    // milhar en-US puro — grupos de exatamente 3 dígitos ("1,234" ou
+    // "1,234,567"), comum em exports de agregadoras internacionais; ler
+    // como decimal errava a magnitude em 1000x (ou virava null).
+    const semEspacos = limpo.replace(/\s/g, "");
+    if (/^\d{1,3}(,\d{3})+$/.test(semEspacos)) {
+      normalizado = semEspacos.replace(/,/g, "");
+    } else {
+      normalizado = limpo.replace(",", ".");
+    }
   }
   // Só ponto (ou nenhum separador): já está no formato aceito pelo Number().
 
@@ -168,11 +175,17 @@ const PALAVRAS_CHAVE: Record<CampoCSV, string[]> = {
 export function detectarMapeamentoInicial(headers: string[]): Partial<Record<CampoCSV, number>> {
   const mapeamento: Partial<Record<CampoCSV, number>> = {};
   const normalizados = headers.map(normalizarTexto);
+  const ocupadas = new Set<number>();
 
   for (const campo of CAMPOS_CSV) {
     const palavras = PALAVRAS_CHAVE[campo];
-    const indice = normalizados.findIndex((h) => palavras.some((p) => h.includes(p)));
-    if (indice !== -1) mapeamento[campo] = indice;
+    const indice = normalizados.findIndex(
+      (h, i) => !ocupadas.has(i) && palavras.some((p) => h.includes(p)),
+    );
+    if (indice !== -1) {
+      mapeamento[campo] = indice;
+      ocupadas.add(indice);
+    }
   }
 
   return mapeamento;

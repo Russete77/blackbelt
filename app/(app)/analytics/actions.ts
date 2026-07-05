@@ -118,6 +118,16 @@ export async function importarMetricasCSV(
     const receita = mapeamento.receita != null
       ? parseNumeroPtBR(linha[mapeamento.receita!] ?? "")
       : null;
+    // Negativos corrompem totais/recebimentos; magnitude absurda é quase
+    // sempre coluna mapeada errada — melhor rejeitar a linha com motivo.
+    if (streams != null && (streams < 0 || streams > 1e12)) {
+      registrarMotivo(`linha ${numeroLinha}: streams fora da faixa válida (${streams})`);
+      continue;
+    }
+    if (receita != null && (receita < 0 || receita > 1e9)) {
+      registrarMotivo(`linha ${numeroLinha}: receita fora da faixa válida (${receita})`);
+      continue;
+    }
 
     let artistaId: string | null = null;
     if (mapeamento.artista != null) {

@@ -48,6 +48,12 @@ export function ImportarCSV({
     async (prev: EstadoImportacao, formData: FormData) => importarMetricasCSV(prev, formData),
     ESTADO_INICIAL,
   );
+  // useActionState não tem reset — sem isto, depois de uma importação com
+  // sucesso o widget reabria preso na tela de sucesso anterior (segunda
+  // importação impossível sem F5). Fechar "consome" o resultado atual por
+  // referência; um novo submit produz um objeto novo e volta a aparecer.
+  const [estadoConsumido, setEstadoConsumido] = useState<EstadoImportacao | null>(null);
+  const estadoVisivel = estado === estadoConsumido ? ESTADO_INICIAL : estado;
 
   function fechar() {
     setAberto(false);
@@ -56,9 +62,23 @@ export function ImportarCSV({
     setMapeamento({});
     setArtistaPadraoId(artistaFixoId ?? "");
     setMoeda("BRL");
+    setEstadoConsumido(estado);
   }
 
+  const [avisoTamanho, setAvisoTamanho] = useState<string | null>(null);
+
   function analisarCsv(texto: string) {
+    // O CSV viaja no body da Server Action (limite configurado em
+    // next.config.ts). Avisamos antes do submit em vez de deixar o Next
+    // estourar com erro genérico.
+    const tamanhoMB = new Blob([texto]).size / 1024 / 1024;
+    if (tamanhoMB > 3.5) {
+      setAvisoTamanho(
+        `Planilha de ${tamanhoMB.toFixed(1)} MB — o limite é ~3,5 MB. Divida o arquivo em partes menores e importe uma de cada vez.`,
+      );
+      return;
+    }
+    setAvisoTamanho(null);
     const resultado = parseCSV(texto);
     if (resultado.headers.length === 0) return;
     setCsvTexto(texto);
@@ -127,17 +147,17 @@ export function ImportarCSV({
         </button>
       </div>
 
-      {estado.status === "ok" ? (
+      {estadoVisivel.status === "ok" ? (
         <div className="flex flex-col gap-3">
           <div className="flex items-start gap-2 rounded-md border border-success/30 bg-success/10 p-3 text-sm text-fg">
             <Check className="mt-0.5 h-4 w-4 shrink-0 text-success" aria-hidden />
-            <p>{estado.message}</p>
+            <p>{estadoVisivel.message}</p>
           </div>
-          {estado.motivos && estado.motivos.length > 0 && (
+          {estadoVisivel.motivos && estadoVisivel.motivos.length > 0 && (
             <div className="rounded-md border border-line bg-surface2/60 p-3 text-xs text-muted">
               <p className="mb-1 font-medium text-fg">Linhas ignoradas:</p>
               <ul className="list-inside list-disc space-y-0.5">
-                {estado.motivos.map((m) => <li key={m}>{m}</li>)}
+                {estadoVisivel.motivos.map((m) => <li key={m}>{m}</li>)}
               </ul>
             </div>
           )}
@@ -169,6 +189,12 @@ export function ImportarCSV({
           >
             Analisar planilha
           </Button>
+          {avisoTamanho && (
+            <div className="flex items-start gap-2 rounded-md border border-danger/30 bg-danger/10 p-3 text-sm text-danger">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+              <p>{avisoTamanho}</p>
+            </div>
+          )}
         </div>
       ) : (
         <form action={formAction} className="flex flex-col gap-4">
@@ -248,10 +274,10 @@ export function ImportarCSV({
             </div>
           )}
 
-          {estado.status === "error" && (
+          {estadoVisivel.status === "error" && (
             <div className="flex items-start gap-2 rounded-md border border-danger/30 bg-danger/10 p-3 text-sm text-danger">
               <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
-              <p>{estado.message}</p>
+              <p>{estadoVisivel.message}</p>
             </div>
           )}
 
