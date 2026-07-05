@@ -8,7 +8,7 @@ import { GraficoLinha } from "@/components/analytics/GraficoLinha";
 import { FiltroAnalytics } from "@/components/analytics/FiltroAnalytics";
 import { ImportarCSV } from "@/components/analytics/ImportarCSV";
 import { SincronizarYoutube } from "@/components/analytics/SincronizarYoutube";
-import { getArtistas, getMetricas } from "@/lib/db";
+import { getArtistas, getMetricas, contarStatusYoutube } from "@/lib/db";
 import {
   totaisMetricas, porFaixa, porMes, porArtistaEPlataforma,
   formatarReceita, formatarStreams, corCategoria,
@@ -21,7 +21,9 @@ export default async function AnalyticsPage({
   searchParams: Promise<{ artista?: string; plataforma?: string }>;
 }) {
   const { artista, plataforma } = await searchParams;
-  const [metricas, artistas] = await Promise.all([getMetricas(), getArtistas()]);
+  const [metricas, artistas, statusYoutube] = await Promise.all([
+    getMetricas(), getArtistas(), contarStatusYoutube(),
+  ]);
 
   const plataformasDistintas = Array.from(new Set(metricas.map((m) => m.plataforma))).sort();
 
@@ -64,7 +66,7 @@ export default async function AnalyticsPage({
         <EmptyState
           icon={BarChart3}
           title="Nenhuma métrica importada ainda."
-          hint='Clique em "Importar planilha" para trazer streams e receita das plataformas — não existe leitura automática de números do Spotify.'
+          hint='Clique em "Importar planilha" para trazer streams e receita das plataformas, ou sincronize o YouTube abaixo se já tiver faixas com vídeo vinculado.'
         />
       ) : (
         <div className="flex flex-col gap-6">
@@ -102,12 +104,12 @@ export default async function AnalyticsPage({
             <h2 className="mb-3 text-sm font-semibold">Por faixa</h2>
             <TabelaFaixas linhas={linhasFaixas} />
           </div>
-
-          <div className="border-t border-line pt-4">
-            <SincronizarYoutube configurado={youtubeConfigurado()} artistas={artistas} />
-          </div>
         </div>
       )}
+
+      <div className="mt-6 border-t border-line pt-4">
+        <SincronizarYoutube configurado={youtubeConfigurado()} artistas={artistas} status={statusYoutube} />
+      </div>
     </div>
   );
 }

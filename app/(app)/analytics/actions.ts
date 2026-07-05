@@ -7,12 +7,15 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { caminhoSeguro } from "@/lib/forms";
-import { getArtistas, getProjetosDoArtista, getFaixasDosProjetos } from "@/lib/db";
+import {
+  getArtistas, getProjetosDoArtista, getFaixasDosProjetos,
+  getFaixasComYoutube, contarStatusYoutube,
+} from "@/lib/db";
 import {
   parseCSV, parseNumeroPtBR, parseDataCSV, normalizarTexto, CAMPOS_OBRIGATORIOS,
   type CampoCSV,
 } from "@/lib/csv";
-import { buscarViewCountYoutube } from "@/lib/youtube";
+import { buscarViewCountYoutube, youtubeConfigurado } from "@/lib/youtube";
 
 export interface EstadoImportacao {
   status: "idle" | "ok" | "error";
@@ -245,5 +248,118 @@ export async function sincronizarViewsYoutube(
   return {
     status: "ok",
     message: `${estatisticas.viewCount.toLocaleString("pt-BR")} views registradas para "${estatisticas.titulo}".`,
+  };
+}
+
+// ------------------------------------------------------------------
+// YouTube — sincronização em lote (todas as faixas com vídeo vinculado).
+// ------------------------------------------------------------------
+
+export interface EstadoSincronizacaoYoutube {
+  status: "idle" | "ok" | "error";
+  message?: string;
+  sincronizadas?: number;
+  semVideo?: number;
+  erros?: string[];
+}
+
+const ESTADO_SINCRONIZACAO_INICIAL: EstadoSincronizacaoYoutube = { status: "idle" };
+
+// Para cada faixa com youtube_video_id vinculado: busca o viewCount atual e
+// grava/atualiza a métrica do dia (plataforma "youtube"). Upsert manual por
+// (faixa, plataforma, dia) — sem constraint única na tabela, então lemos
+// antes de decidir entre update e insert (evita duplicar uma linha por dia
+// a cada clique no botão).
+export async function sincronizarYoutubeTudo(
+  _estado: EstadoSincronizacaoYoutube,
+  formData: FormData,
+): Promise<EstadoSincronizacaoYoutube> {
+  const caminho = caminhoSeguro(formData.get("caminho"));
+
+  if (!youtubeConfigurado()) {
+    return { ...ESTADO_SINCRONIZACAO_INICIAL, status: "error", message: "Configure YOUTUBE_API_KEY no ambiente para sincronizar views." };
+  }
+
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { status: "error", message: "Sessão expirada. Entre novamente." };
+
+  const faixas = await getFaixasComYoutube();
+  if (faixas.length === 0) {
+    return {
+      status: "error",
+      message: "Nenhuma faixa tem vídeo do YouTube vinculado ainda. Vincule um vídeo na página da faixa.",
+      sincronizadas: 0,
+    };
+  }
+
+  const hoje = new Date().toISOString().slice(0, 10);
+  let sincronizadas = 0;
+  const erros: string[] = [];
+
+  for (const faixa of faixas) {
+    const estatisticas = await buscarViewCountYoutube(faixa.youtubeVideoId);
+    if (!estatisticas) {
+      erros.push(`"${faixa.titulo}": vídeo inválido, removido ou indisponível.`);
+      continue;
+    }
+
+    const { data: existente, error: buscaError } = await supabase
+      .from("metricas")
+      .select("id")
+      .eq("faixa_id", faixa.id)
+      .eq("plataforma", "youtube")
+      .eq("data", hoje)
+      .maybeSingle();
+    if (buscaError) {
+      erros.push(`"${faixa.titulo}": falha ao verificar métrica existente.`);
+      continue;
+    }
+
+    if (existente) {
+      const { error } = await supabase
+        .from("metricas")
+        .update({ streams: estatisticas.viewCount, artista_id: faixa.artistaId })
+        .eq("id", existente.id);
+      if (error) {
+        erros.push(`"${faixa.titulo}": falha ao atualizar a métrica.`);
+        continue;
+      }
+    } else {
+      const { error } = await supabase.from("metricas").insert({
+        artista_id: faixa.artistaId,
+        faixa_id: faixa.id,
+        plataforma: "youtube",
+        data: hoje,
+        streams: estatisticas.viewCount,
+      });
+      if (error) {
+        erros.push(`"${faixa.titulo}": falha ao salvar a métrica.`);
+        continue;
+      }
+    }
+    sincronizadas++;
+  }
+
+  revalidatePath(caminho);
+
+  const { semVideo } = await contarStatusYoutube();
+
+  if (sincronizadas === 0) {
+    return {
+      status: "error",
+      message: "Nenhuma faixa foi sincronizada.",
+      sincronizadas: 0,
+      semVideo,
+      erros: erros.slice(0, 8),
+    };
+  }
+
+  return {
+    status: "ok",
+    message: `${sincronizadas} faixa(s) sincronizada(s) com o YouTube${erros.length > 0 ? `, ${erros.length} com erro` : ""}.`,
+    sincronizadas,
+    semVideo,
+    erros: erros.slice(0, 8),
   };
 }
