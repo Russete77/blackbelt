@@ -6,14 +6,15 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { StatTile } from "@/components/ui/StatTile";
 import { TabelaFaixasSplit } from "@/components/analytics/TabelaFaixasSplit";
 import { GraficoBarras, type SerieBarra } from "@/components/analytics/GraficoBarras";
-import { FiltroRpm } from "@/components/analytics/FiltroRpm";
+import { FiltroTaxas } from "@/components/analytics/FiltroTaxas";
 import { ImportarCSV } from "@/components/analytics/ImportarCSV";
 import { SincronizarYoutube } from "@/components/analytics/SincronizarYoutube";
 import { CotacaoDolar } from "@/components/analytics/CotacaoDolar";
 import {
   totaisMetricas, porPlataforma, formatarStreams, PALETA_CATEGORICA,
-  receitaComEstimativa, recebimentoArtista, converterReceitaParaBRL,
+  recebimentoArtista, converterReceitaParaBRL,
 } from "@/lib/metricas";
+import { estimarReceitaPorFaixa, taxasDosParams } from "@/lib/estimativa";
 import { cotacaoDolar, formatarValorDual } from "@/lib/cambio";
 import { youtubeConfigurado } from "@/lib/youtube";
 import type { LinhaFaixaSplit } from "@/types/analytics";
@@ -22,12 +23,11 @@ export default async function NumerosPage({
   params, searchParams,
 }: {
   params: Promise<{ slug: string }>;
-  searchParams: Promise<{ rpm?: string }>;
+  searchParams: Promise<{ rpm?: string; ryt?: string; rsp?: string; rdz?: string }>;
 }) {
   const { slug } = await params;
-  const { rpm: rpmParam } = await searchParams;
-  const rpmBruto = rpmParam ? Number(rpmParam.replace(",", ".")) : null;
-  const rpm = rpmBruto != null && Number.isFinite(rpmBruto) && rpmBruto > 0 ? rpmBruto : null;
+  const { rpm, ryt, rsp, rdz } = await searchParams;
+  const taxas = taxasDosParams({ rpm, ryt, rsp, rdz });
 
   const artista = await getArtista(slug);
   if (!artista) return notFound();
@@ -45,19 +45,22 @@ export default async function NumerosPage({
 
   // "Por faixa" com split (%) — inclui feats: a receita mostrada é da FAIXA
   // inteira (todos os participantes), e "recebimento" já aplica o % do
-  // artista. RPM (?rpm=) estima receita quando só há views (YouTube) e
-  // nenhuma receita real importada ainda — sempre com selo "est.".
+  // artista. Estimativa por plataforma (?ryt=&rsp=&rdz=) preenche receita
+  // quando só há streams (ex.: views do YouTube) e nenhuma receita real
+  // importada AINDA naquela plataforma — sempre com selo "est." (ver
+  // lib/estimativa.ts).
   const linhasFaixasSplit: LinhaFaixaSplit[] = faixasComSplit.map((f) => {
-    const { valor, estimada } = receitaComEstimativa(f.receita, f.streams, rpm);
+    const estimativa = estimarReceitaPorFaixa(f.streamsPorPlataforma, f.receitaPorPlataforma, taxas);
     return {
       chave: f.id,
       rotulo: f.titulo,
       papel: f.papel,
       percentual: f.percentual,
       streams: f.streams,
-      receita: valor,
-      receitaEstimada: estimada,
-      recebimento: recebimentoArtista(valor, f.percentual),
+      receita: estimativa.total,
+      receitaEstimada: estimativa.estimada,
+      porPlataforma: estimativa.porPlataforma,
+      recebimento: recebimentoArtista(estimativa.total, f.percentual),
     };
   });
   const recebimentoTotal = linhasFaixasSplit.reduce((s, l) => s + (l.recebimento ?? 0), 0);
@@ -113,7 +116,7 @@ export default async function NumerosPage({
                 Por faixa <span className="font-normal text-muted">(recebimento pelo split, inclui feats)</span>
               </h3>
               <Suspense fallback={null}>
-                <FiltroRpm rpmAtual={rpm ?? undefined} />
+                <FiltroTaxas ryt={taxas.youtube} rsp={taxas.spotify} rdz={taxas.deezer} />
               </Suspense>
             </div>
             <TabelaFaixasSplit

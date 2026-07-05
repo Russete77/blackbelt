@@ -708,6 +708,11 @@ export interface FaixaComSplit {
   percentual: number;
   streams: number | null;
   receita: number | null;
+  // Streams/receita real (já em BRL) agregados por plataforma — base da
+  // estimativa de receita por plataforma (ver lib/estimativa.ts). Faixa sem
+  // nenhuma métrica ainda: ambos vazios.
+  streamsPorPlataforma: Record<string, number>;
+  receitaPorPlataforma: Record<string, number>;
 }
 
 interface VinculoFaixaArtistaRow {
@@ -736,23 +741,32 @@ export async function getFaixasComSplitDoArtista(artistaId: string, taxaBrl: num
   const faixaIds = vinculos.map((v) => v.faixa_id);
   const { data: metricasRows, error: metError } = await supabase
     .from("metricas")
-    .select("faixa_id, streams, receita, moeda")
+    .select("faixa_id, plataforma, streams, receita, moeda")
     .in("faixa_id", faixaIds)
-    .returns<{ faixa_id: string | null; streams: number | string | null; receita: number | string | null; moeda?: Moeda | null }[]>();
+    .returns<{ faixa_id: string | null; plataforma: string; streams: number | string | null; receita: number | string | null; moeda?: Moeda | null }[]>();
   if (metError) throw metError;
 
-  // Agrega streams/receita por faixa, somando TODAS as métricas da faixa
-  // (independente de qual artista_id a métrica foi importada) — é o total
-  // da faixa, base do split. Receita em USD é convertida pra BRL antes de somar.
-  const agregadoPorFaixa = new Map<string, { streams: number; receita: number; temMetrica: boolean }>();
+  // Agrega streams/receita por faixa (total, base do split) E por
+  // plataforma dentro da faixa (base da estimativa por plataforma, ver
+  // lib/estimativa.ts) — somando TODAS as métricas da faixa (independente
+  // de qual artista_id a métrica foi importada). Receita em USD é
+  // convertida pra BRL antes de somar em ambos os níveis.
+  const agregadoPorFaixa = new Map<string, {
+    streams: number; receita: number; temMetrica: boolean;
+    streamsPorPlataforma: Record<string, number>; receitaPorPlataforma: Record<string, number>;
+  }>();
   for (const m of metricasRows ?? []) {
     if (!m.faixa_id) continue;
-    const atual = agregadoPorFaixa.get(m.faixa_id) ?? { streams: 0, receita: 0, temMetrica: false };
+    const atual = agregadoPorFaixa.get(m.faixa_id)
+      ?? { streams: 0, receita: 0, temMetrica: false, streamsPorPlataforma: {}, receitaPorPlataforma: {} };
     const receitaBruta = m.receita != null ? Number(m.receita) : 0;
     const receitaBRL = (m.moeda ?? "BRL") === "USD" ? receitaBruta * taxaBrl : receitaBruta;
-    atual.streams += m.streams != null ? Number(m.streams) : 0;
+    const streamsNum = m.streams != null ? Number(m.streams) : 0;
+    atual.streams += streamsNum;
     atual.receita += receitaBRL;
     atual.temMetrica = true;
+    atual.streamsPorPlataforma[m.plataforma] = (atual.streamsPorPlataforma[m.plataforma] ?? 0) + streamsNum;
+    atual.receitaPorPlataforma[m.plataforma] = (atual.receitaPorPlataforma[m.plataforma] ?? 0) + receitaBRL;
     agregadoPorFaixa.set(m.faixa_id, atual);
   }
 
@@ -765,6 +779,8 @@ export async function getFaixasComSplitDoArtista(artistaId: string, taxaBrl: num
       percentual: Number(v.percentual),
       streams: agr?.temMetrica ? agr.streams : null,
       receita: agr?.temMetrica ? agr.receita : null,
+      streamsPorPlataforma: agr?.streamsPorPlataforma ?? {},
+      receitaPorPlataforma: agr?.receitaPorPlataforma ?? {},
     };
   });
 }

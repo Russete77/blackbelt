@@ -3,6 +3,7 @@
 // Mantidos fora de types/domain.ts pelo mesmo motivo de types/shows.ts: não
 // conflitar com trabalho paralelo em cima do Metrica "cru".
 import type { Metrica } from "@/types/domain";
+import type { LinhaEstimativaPlataforma } from "@/lib/estimativa";
 
 // Métrica com artista/faixa resolvidos via join (ver lib/db.ts).
 export interface MetricaDetalhada extends Metrica {
@@ -36,9 +37,14 @@ export interface LinhaFaixaAgregada {
   streams: number | null;
   receita: number | null;
   receitaPor1kStreams: number | null;
-  // true quando `receita` veio da estimativa por RPM (lib/metricas.ts#receitaComEstimativa)
-  // em vez de receita real importada — a UI mostra um selo "est." nesse caso.
+  // true quando `receita` veio (total ou parcialmente) da estimativa por
+  // plataforma (lib/estimativa.ts#estimarReceitaPorFaixa) em vez de receita
+  // real importada — a UI mostra um selo "est." nesse caso.
   receitaEstimada?: boolean;
+  // Detalhamento de `receita` por plataforma (real e/ou estimada) — base do
+  // "quais plataformas contribuíram" mostrado na tabela. Ausente/vazio
+  // quando a linha não passou pela estimativa por plataforma.
+  porPlataforma?: LinhaEstimativaPlataforma[];
 }
 
 // Linha "por faixa" da página Números do artista (getFaixasComSplitDoArtista):
@@ -54,5 +60,7 @@ export interface LinhaFaixaSplit {
   streams: number | null;
   receita: number | null;
   receitaEstimada: boolean;
+  // Detalhamento de `receita` por plataforma — ver LinhaFaixaAgregada.porPlataforma.
+  porPlataforma?: LinhaEstimativaPlataforma[];
   recebimento: number | null;
 }

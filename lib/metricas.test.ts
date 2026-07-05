@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   totaisMetricas, porPlataforma, porArtista, porFaixa, porMes, porArtistaEPlataforma,
   receitaPor1kStreams, formatarReceita, formatarStreams, formatarValorPorTipo, corCategoria,
-  receitaComEstimativa, recebimentoArtista, converterReceitaParaBRL,
+  receitaComEstimativa, recebimentoArtista, converterReceitaParaBRL, porFaixaEPlataforma,
 } from "./metricas";
 import type { MetricaDetalhada } from "@/types/analytics";
 
@@ -137,6 +137,32 @@ describe("porFaixa", () => {
     expect(linhas).toEqual([
       { chave: "f9", rotulo: "Órfã", streams: 100, receita: 1, receitaPor1kStreams: 10 },
     ]);
+  });
+});
+
+describe("porFaixaEPlataforma", () => {
+  it("agrupa streams/receita por faixa, depois por plataforma", () => {
+    const mapa = porFaixaEPlataforma([
+      m({ faixaId: "f1", plataforma: "youtube", streams: 1000, receita: 0 }),
+      m({ faixaId: "f1", plataforma: "spotify", streams: 500, receita: 8 }),
+      m({ faixaId: "f1", plataforma: "youtube", streams: 200, receita: 0 }),
+      m({ faixaId: "f2", plataforma: "deezer", streams: 300, receita: 3 }),
+    ]);
+    expect(mapa.get("f1")).toEqual({
+      streams: { youtube: 1200, spotify: 500 },
+      receita: { youtube: 0, spotify: 8 },
+    });
+    expect(mapa.get("f2")).toEqual({ streams: { deezer: 300 }, receita: { deezer: 3 } });
+  });
+
+  it("ignora métricas sem faixaId", () => {
+    const mapa = porFaixaEPlataforma([m({ faixaId: undefined, plataforma: "youtube", streams: 100 })]);
+    expect(mapa.size).toBe(0);
+  });
+
+  it("streams/receita ausentes contam como 0", () => {
+    const mapa = porFaixaEPlataforma([m({ faixaId: "f1", plataforma: "youtube", streams: undefined, receita: undefined })]);
+    expect(mapa.get("f1")).toEqual({ streams: { youtube: 0 }, receita: { youtube: 0 } });
   });
 });
 

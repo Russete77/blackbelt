@@ -127,6 +127,26 @@ export function porFaixa(
   return [...comNumeros, ...semNumeros];
 }
 
+// Agrega streams/receita por (faixa, plataforma) — base da estimativa de
+// receita por plataforma (ver lib/estimativa.ts#estimarReceitaPorFaixa):
+// sem esse nível de detalhe, a estimativa não saberia quanto de
+// streams/receita veio do YouTube vs. Spotify vs. Deezer dentro da MESMA
+// faixa, e não poderia aplicar a taxa certa nem preservar receita real por
+// plataforma. Métrica sem faixaId fica de fora (mesmo critério de porFaixa).
+export function porFaixaEPlataforma(
+  metricas: MetricaDetalhada[],
+): Map<string, { streams: Record<string, number>; receita: Record<string, number> }> {
+  const porFaixa = new Map<string, { streams: Record<string, number>; receita: Record<string, number> }>();
+  for (const m of metricas) {
+    if (!m.faixaId) continue;
+    const atual = porFaixa.get(m.faixaId) ?? { streams: {}, receita: {} };
+    atual.streams[m.plataforma] = (atual.streams[m.plataforma] ?? 0) + (m.streams ?? 0);
+    atual.receita[m.plataforma] = (atual.receita[m.plataforma] ?? 0) + (m.receita ?? 0);
+    porFaixa.set(m.faixaId, atual);
+  }
+  return porFaixa;
+}
+
 // Shape para o gráfico de barras empilhado "streams por artista, por
 // plataforma": uma linha por artista, uma chave dinâmica por plataforma
 // (soma de streams). `series` traz as plataformas na ordem estável passada

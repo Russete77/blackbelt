@@ -7,27 +7,27 @@ import { TabelaFaixas } from "@/components/analytics/TabelaFaixas";
 import { GraficoBarras, type SerieBarra } from "@/components/analytics/GraficoBarras";
 import { GraficoLinha } from "@/components/analytics/GraficoLinha";
 import { FiltroAnalytics } from "@/components/analytics/FiltroAnalytics";
-import { FiltroRpm } from "@/components/analytics/FiltroRpm";
+import { FiltroTaxas } from "@/components/analytics/FiltroTaxas";
 import { ImportarCSV } from "@/components/analytics/ImportarCSV";
 import { SincronizarYoutube } from "@/components/analytics/SincronizarYoutube";
 import { CotacaoDolar } from "@/components/analytics/CotacaoDolar";
 import { getArtistas, getMetricas, contarStatusYoutube, getFaixas, getFaixasDoArtista } from "@/lib/db";
 import {
   totaisMetricas, porFaixa, porMes, porArtistaEPlataforma,
-  formatarStreams, corCategoria, receitaComEstimativa, receitaPor1kStreams,
-  converterReceitaParaBRL,
+  formatarStreams, corCategoria, receitaPor1kStreams,
+  converterReceitaParaBRL, porFaixaEPlataforma,
 } from "@/lib/metricas";
+import { estimarReceitaPorFaixa, taxasDosParams } from "@/lib/estimativa";
 import { cotacaoDolar, formatarValorDual } from "@/lib/cambio";
 import { youtubeConfigurado } from "@/lib/youtube";
 
 export default async function AnalyticsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ artista?: string; plataforma?: string; rpm?: string }>;
+  searchParams: Promise<{ artista?: string; plataforma?: string; rpm?: string; ryt?: string; rsp?: string; rdz?: string }>;
 }) {
-  const { artista, plataforma, rpm: rpmParam } = await searchParams;
-  const rpmBruto = rpmParam ? Number(rpmParam.replace(",", ".")) : null;
-  const rpm = rpmBruto != null && Number.isFinite(rpmBruto) && rpmBruto > 0 ? rpmBruto : null;
+  const { artista, plataforma, rpm, ryt, rsp, rdz } = await searchParams;
+  const taxas = taxasDosParams({ rpm, ryt, rsp, rdz });
 
   const [metricasBrutas, artistas, statusYoutube, faixasRelevantes, cotacao] = await Promise.all([
     getMetricas(), getArtistas(), contarStatusYoutube(),
@@ -51,19 +51,26 @@ export default async function AnalyticsPage({
   // conjunto de faixas listadas respeita apenas o filtro de artista (ver
   // faixasRelevantes acima), então uma faixa sem métrica na plataforma
   // selecionada ainda aparece na tabela, com "—".
-  // RPM informado (?rpm=): faixa sem receita real importada mas com streams
-  // ganha uma receita ESTIMADA (streams/1000 × rpm), marcada com selo "est."
-  // — a receita real sempre precede a estimativa (ver lib/metricas.ts).
+  // Estimativa por plataforma (?ryt=&rsp=&rdz=, com fallback ao padrão de
+  // mercado): faixa sem receita real importada NAQUELA plataforma mas com
+  // streams ganha uma receita ESTIMADA (streams × taxa da plataforma),
+  // marcada com selo "est." — a receita real sempre precede a estimativa,
+  // plataforma a plataforma (ver lib/estimativa.ts).
+  const faixaPorPlataforma = porFaixaEPlataforma(filtradas);
   const linhasFaixas = porFaixa(
     faixasRelevantes.map((f) => ({ id: f.id, titulo: f.titulo })),
     filtradas,
   ).map((l) => {
-    const { valor, estimada } = receitaComEstimativa(l.receita, l.streams, rpm);
+    const dados = faixaPorPlataforma.get(l.chave);
+    const estimativa = estimarReceitaPorFaixa(dados?.streams ?? {}, dados?.receita ?? {}, taxas);
     return {
       ...l,
-      receita: valor,
-      receitaEstimada: estimada,
-      receitaPor1kStreams: valor != null && l.streams != null ? receitaPor1kStreams(valor, l.streams) : l.receitaPor1kStreams,
+      receita: estimativa.total,
+      receitaEstimada: estimativa.estimada,
+      porPlataforma: estimativa.porPlataforma,
+      receitaPor1kStreams: estimativa.total != null && l.streams != null
+        ? receitaPor1kStreams(estimativa.total, l.streams)
+        : l.receitaPor1kStreams,
     };
   });
   const linhasMes = porMes(filtradas).map((l) => ({ rotulo: l.rotulo, valor: l.receita }));
@@ -99,7 +106,7 @@ export default async function AnalyticsPage({
           </Suspense>
         </div>
         <Suspense fallback={null}>
-          <FiltroRpm rpmAtual={rpm ?? undefined} />
+          <FiltroTaxas ryt={taxas.youtube} rsp={taxas.spotify} rdz={taxas.deezer} />
         </Suspense>
       </div>
 

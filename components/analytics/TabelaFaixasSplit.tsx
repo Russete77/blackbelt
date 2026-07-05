@@ -3,6 +3,7 @@ import { Badge } from "@/components/ui/Badge";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { formatarStreams } from "@/lib/metricas";
 import { formatarValorDual } from "@/lib/cambio";
+import { labelPlataforma } from "@/lib/labels";
 import type { LinhaFaixaSplit } from "@/types/analytics";
 
 // Tabela "por faixa" da página Números do artista — cada linha é uma faixa
@@ -57,6 +58,13 @@ export function TabelaFaixasSplit({
                     {l.receita != null ? formatarValorDual(l.receita, "BRL", taxaBrl) : "—"}
                     {l.receitaEstimada && <Badge tone="accent">est.</Badge>}
                   </span>
+                  {l.porPlataforma && l.porPlataforma.length > 0 && (
+                    <p className="mt-0.5 whitespace-nowrap font-sans text-[11px] text-muted">
+                      {l.porPlataforma
+                        .map((p) => `${labelPlataforma(p.plataforma)} ${formatarValorDual(p.valor, "BRL", taxaBrl)}${p.real ? "" : " est."}`)
+                        .join(" · ")}
+                    </p>
+                  )}
                 </td>
                 <td className="px-4 py-2.5 text-right font-mono text-xs text-muted">
                   {l.percentual}%
@@ -72,7 +80,7 @@ export function TabelaFaixasSplit({
       <p className="text-xs text-muted">
         {linhas.length} faixa{linhas.length === 1 ? "" : "s"} com split
         {estimadas > 0
-          ? ` · ${estimadas} com receita estimada (est.) por RPM — views sem receita real importada.`
+          ? ` · ${estimadas} com receita estimada (est.) por taxa média de plataforma — streams sem receita real importada naquela plataforma.`
           : ""}
       </p>
     </div>
