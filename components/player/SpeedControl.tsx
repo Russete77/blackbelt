@@ -11,7 +11,7 @@ export function SpeedControl() {
   };
   return (
     <button onClick={proxima}
-      className="text-xs font-mono text-muted hover:text-accent w-12 text-center"
+      className="h-9 w-12 shrink-0 rounded-md text-center font-mono text-xs tabular-nums text-muted transition-colors duration-200 hover:bg-surface2 hover:text-accent"
       title="Velocidade de reprodução">
       {velocidade}×
     </button>

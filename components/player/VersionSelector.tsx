@@ -14,7 +14,7 @@ export function VersionSelector() {
         const v = versoesIrmas.find((x) => x.id === e.target.value);
         if (v) tocar(v, faixaTitulo, versoesIrmas);
       }}
-      className="bg-surface2 text-xs rounded-md px-2 py-1 border border-line"
+      className="h-9 max-w-[7rem] rounded-md border border-line bg-surface2 px-2 text-xs text-fg outline-none transition-colors duration-200 focus:border-accent sm:max-w-none"
     >
       {versoesIrmas.map((v) => (
         <option key={v.id} value={v.id}>{labelTipoVersao(v.tipo)} — {v.rotulo}</option>
