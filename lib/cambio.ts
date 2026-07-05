@@ -26,8 +26,11 @@ const COTACAO_FALLBACK_BRL = 5.5;
 
 export async function cotacaoDolar(): Promise<Cotacao> {
   try {
+    // Timeout: no primeiro cache miss esta chamada bloqueia a renderização
+    // de /analytics e /numeros — API pendurada não pode travar a página.
     const resposta = await fetch("https://economia.awesomeapi.com.br/last/USD-BRL", {
       next: { revalidate: 86400 },
+      signal: AbortSignal.timeout(5000),
     });
     if (!resposta.ok) throw new Error(`AwesomeAPI respondeu ${resposta.status}`);
 

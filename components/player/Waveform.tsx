@@ -123,13 +123,21 @@ export function Waveform({
     if (!regions) return;
     marcadoresRef.current.forEach((r) => r.remove());
     marcadoresRef.current = comentarios.map((c) => {
+      // Alvo de toque de 24px (WCAG 2.5.8) com o ponto visível de 12px
+      // centralizado — 12px puros eram quase impossíveis de acertar no mobile.
+      const alvo = document.createElement("span");
+      alvo.style.cssText = [
+        "position:absolute", "top:-17px", "left:0", "transform:translateX(-50%)",
+        "width:24px", "height:24px", "display:grid", "place-items:center",
+        "cursor:pointer",
+      ].join(";");
       const ponto = document.createElement("span");
       ponto.style.cssText = [
-        "position:absolute", "top:-11px", "left:0", "transform:translateX(-50%)",
         "width:12px", "height:12px", "border-radius:9999px",
         `border:1px solid ${tokens.colors.bg}`, `background:${tokens.colors.accent}`,
-        "box-shadow:0 1px 2px rgba(0,0,0,.4)", "cursor:pointer", "transition:transform .15s",
+        "box-shadow:0 1px 2px rgba(0,0,0,.4)", "transition:transform .15s",
       ].join(";");
+      alvo.appendChild(ponto);
       const regiao = regions.addRegion({
         id: `comentario-${c.id}`,
         start: c.timestampSegundos,
@@ -137,7 +145,7 @@ export function Waveform({
         drag: false,
         resize: false,
         color: `${tokens.colors.accent}55`,
-        content: ponto,
+        content: alvo,
       });
       const el = regiao.element;
       if (el) {
@@ -156,8 +164,8 @@ export function Waveform({
           }
         });
       }
-      regiao.on("over", () => { ponto.style.transform = "translateX(-50%) scale(1.25)"; });
-      regiao.on("leave", () => { ponto.style.transform = "translateX(-50%) scale(1)"; });
+      regiao.on("over", () => { ponto.style.transform = "scale(1.25)"; });
+      regiao.on("leave", () => { ponto.style.transform = "scale(1)"; });
       return regiao;
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps

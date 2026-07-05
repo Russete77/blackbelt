@@ -27,6 +27,13 @@ export function FiltroTaxas({ ryt, rsp, rdz }: { ryt: number; rsp: number; rdz: 
   const [valores, setValores] = useState<Record<ChaveTaxa, string>>({
     ryt: String(ryt), rsp: String(rsp), rdz: String(rdz),
   });
+  // Voltar/avançar do browser muda a query sem remontar o componente —
+  // re-sincroniza os inputs quando as props (derivadas da URL) mudam.
+  const [propsAnteriores, setPropsAnteriores] = useState({ ryt, rsp, rdz });
+  if (propsAnteriores.ryt !== ryt || propsAnteriores.rsp !== rsp || propsAnteriores.rdz !== rdz) {
+    setPropsAnteriores({ ryt, rsp, rdz });
+    setValores({ ryt: String(ryt), rsp: String(rsp), rdz: String(rdz) });
+  }
 
   function aplicar(chave: ChaveTaxa) {
     const proximos = new URLSearchParams(params.toString());

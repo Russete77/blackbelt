@@ -82,7 +82,9 @@ export default async function AnalyticsPage({
     cor: corCategoria(p, plataformasDistintas),
   }));
 
-  const faixasMonetizadas = linhasFaixas.filter((l) => l.streams != null).length;
+  // "Monetizada" = tem receita (real ou estimada) — só views sem nenhuma
+  // receita não conta.
+  const faixasMonetizadas = linhasFaixas.filter((l) => (l.receita ?? 0) > 0).length;
 
   return (
     <div className="p-4 md:p-6">
