@@ -7,9 +7,9 @@ describe("navItems", () => {
       "Home", "Artistas", "Estúdio", "Analytics", "Previsão", "Shows", "Registro",
     ]);
   });
-  it("Home, Artistas, Estúdio, Analytics e Shows estão disponíveis nesta fatia", () => {
+  it("Home, Artistas, Estúdio, Analytics, Shows e Registro estão disponíveis nesta fatia", () => {
     const disponiveis = navItems.filter((n) => n.disponivel).map((n) => n.label);
-    expect(disponiveis).toEqual(["Home", "Artistas", "Estúdio", "Analytics", "Shows"]);
+    expect(disponiveis).toEqual(["Home", "Artistas", "Estúdio", "Analytics", "Shows", "Registro"]);
   });
 });
 

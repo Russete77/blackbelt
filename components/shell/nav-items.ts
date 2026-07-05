@@ -12,7 +12,7 @@ export const navItems: NavItem[] = [
   { href: "/analytics", label: "Analytics", icon: BarChart3, disponivel: true },
   { href: "/previsao", label: "Previsão", icon: TrendingUp, disponivel: false },
   { href: "/shows", label: "Shows", icon: Mic2, disponivel: true },
-  { href: "/registro", label: "Registro", icon: FileText, disponivel: false },
+  { href: "/registro", label: "Registro", icon: FileText, disponivel: true },
 ];
 
 // Rota ativa por prefixo: /artista/x acende "Artistas", /faixa/y acende
