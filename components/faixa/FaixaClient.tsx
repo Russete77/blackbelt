@@ -6,6 +6,7 @@ import { usePlayer } from "@/components/player/PlayerContext";
 import { ListaComentarios } from "@/components/faixa/ListaComentarios";
 import { UploadVersao } from "@/components/faixa/UploadVersao";
 import { CapaUploader } from "@/components/capa/CapaUploader";
+import { VincularYoutube } from "@/components/faixa/VincularYoutube";
 import { NovoComentario } from "@/components/faixa/NovoComentario";
 import { Button } from "@/components/ui/Button";
 import { Cover } from "@/components/ui/Cover";
@@ -50,6 +51,7 @@ export function FaixaClient({ faixa, versoes, comentariosPorVersao, isAdmin = fa
               {[faixa.genero, labelEstagio(faixa.estagio)].filter(Boolean).join(" · ")}
             </p>
             <CapaUploader tipo="faixa" id={faixa.id} rotulo="Capa" className="mt-1.5 inline-block" />
+            <VincularYoutube faixaId={faixa.id} youtubeVideoId={faixa.youtubeVideoId} />
           </div>
         </div>
         <EmptyState
@@ -77,6 +79,7 @@ export function FaixaClient({ faixa, versoes, comentariosPorVersao, isAdmin = fa
                 .join(" · ")}
             </p>
             <CapaUploader tipo="faixa" id={faixa.id} rotulo="Capa" className="mt-1.5 inline-block" />
+            <VincularYoutube faixaId={faixa.id} youtubeVideoId={faixa.youtubeVideoId} />
           </div>
         </div>
         <UploadVersao faixaId={faixa.id} />

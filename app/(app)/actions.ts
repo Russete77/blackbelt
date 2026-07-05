@@ -5,6 +5,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { caminhoSeguro } from "@/lib/forms";
+import { extrairYoutubeVideoId } from "@/lib/youtube";
 
 export interface EstadoAcao {
   status: "idle" | "ok" | "error";
@@ -179,6 +180,44 @@ export async function iniciarFaixa(_estado: EstadoAcaoComId, formData: FormData)
 
   revalidatePath(caminho);
   return { status: "ok", faixaId: faixa.id };
+}
+
+// Vincula (ou remove) o vídeo do YouTube de uma faixa: aceita URL completa
+// (watch, youtu.be, shorts, embed) ou um id solto de 11 chars — ver
+// extrairYoutubeVideoId em lib/youtube.ts. Campo vazio limpa o vínculo
+// (útil quando o vídeo mudou ou foi removido).
+export async function vincularYoutube(_estado: EstadoAcao, formData: FormData): Promise<EstadoAcao> {
+  const faixaId = String(formData.get("faixaId") ?? "").trim();
+  const bruto = String(formData.get("youtube") ?? "").trim();
+  const caminho = caminhoSeguro(formData.get("caminho"));
+
+  if (!faixaId) return { status: "error", message: "Faixa inválida." };
+
+  let videoId: string | null = null;
+  if (bruto) {
+    videoId = extrairYoutubeVideoId(bruto);
+    if (!videoId) {
+      return { status: "error", message: "Link ou ID do YouTube inválido. Cole a URL do vídeo ou o id de 11 caracteres." };
+    }
+  }
+
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { status: "error", message: "Sessão expirada. Entre novamente." };
+
+  const { error } = await supabase
+    .from("faixas")
+    .update({ youtube_video_id: videoId })
+    .eq("id", faixaId);
+  if (error) {
+    return { status: "error", message: "Não foi possível salvar o link do YouTube. Tente novamente." };
+  }
+
+  revalidatePath(caminho);
+  return {
+    status: "ok",
+    message: videoId ? "Vídeo do YouTube vinculado." : "Link do YouTube removido.",
+  };
 }
 
 export async function editarComentario(_estado: EstadoAcao, formData: FormData): Promise<EstadoAcao> {
