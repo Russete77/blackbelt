@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { BarChart3, Headphones, Wallet } from "lucide-react";
-import { getArtista, getMetricasDoArtista } from "@/lib/db";
+import { getArtista, getMetricasDoArtista, getFaixasDoArtista } from "@/lib/db";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { StatTile } from "@/components/ui/StatTile";
 import { TabelaFaixas } from "@/components/analytics/TabelaFaixas";
@@ -21,9 +21,12 @@ export default async function NumerosPage({
   const artista = await getArtista(slug);
   if (!artista) return notFound();
 
-  const metricas = await getMetricasDoArtista(artista.id);
+  const [metricas, faixas] = await Promise.all([
+    getMetricasDoArtista(artista.id),
+    getFaixasDoArtista(artista.id),
+  ]);
   const totais = totaisMetricas(metricas);
-  const linhasFaixas = porFaixa(metricas);
+  const linhasFaixas = porFaixa(faixas.map((f) => ({ id: f.id, titulo: f.titulo })), metricas);
   const linhasPlataforma = porPlataforma(metricas).map((l) => ({ rotulo: l.rotulo, streams: l.streams }));
 
   // Uma série só (streams por plataforma do MESMO artista): a identidade
@@ -38,7 +41,7 @@ export default async function NumerosPage({
         <ImportarCSV artistas={[{ id: artista.id, nome: artista.nome }]} artistaFixoId={artista.id} />
       </div>
 
-      {metricas.length === 0 ? (
+      {metricas.length === 0 && faixas.length === 0 ? (
         <EmptyState
           icon={BarChart3}
           title={`Nenhuma métrica importada ainda para ${artista.nome}.`}
@@ -53,12 +56,19 @@ export default async function NumerosPage({
 
           <div className="rounded-lg border border-line bg-surface p-4 md:p-5">
             <h3 className="mb-3 text-sm font-semibold">Streams por plataforma</h3>
-            <GraficoBarras dados={linhasPlataforma} series={serieUnica} formato="streams" altura={220} />
+            {linhasPlataforma.length === 0 ? (
+              <p className="py-8 text-center text-xs text-muted">Sem dados para os filtros atuais.</p>
+            ) : (
+              <GraficoBarras dados={linhasPlataforma} series={serieUnica} formato="streams" altura={220} />
+            )}
           </div>
 
           <div>
             <h3 className="mb-3 text-sm font-semibold">Por faixa</h3>
-            <TabelaFaixas linhas={linhasFaixas} tituloVazio="Nenhuma faixa com métrica vinculada ainda." />
+            <TabelaFaixas
+              linhas={linhasFaixas}
+              tituloVazio={`Nenhuma faixa cadastrada ainda para ${artista.nome}.`}
+            />
           </div>
         </>
       )}

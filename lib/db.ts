@@ -301,6 +301,32 @@ export async function getFaixa(id: string): Promise<Faixa | null> {
   return data ? mapFaixa(data) : null;
 }
 
+// Todas as faixas visíveis ao usuário (RLS), ordenadas por título — base do
+// LEFT JOIN "faixas x métricas" da tabela "Por faixa" (toda faixa aparece,
+// mesmo sem métrica ainda importada/sincronizada).
+export async function getFaixas(): Promise<Faixa[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.from("faixas").select("*").order("titulo");
+  if (error) throw error;
+  return (data ?? []).map(mapFaixa);
+}
+
+// Mesma coisa, restrita às faixas dos projetos vinculados a um artista
+// (via projeto_artistas) — usado na página "Números" do artista.
+export async function getFaixasDoArtista(artistaId: string): Promise<Faixa[]> {
+  const projetos = await getProjetosDoArtista(artistaId);
+  const projetoIds = projetos.map((p) => p.id);
+  if (projetoIds.length === 0) return [];
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("faixas")
+    .select("*")
+    .in("projeto_id", projetoIds)
+    .order("titulo");
+  if (error) throw error;
+  return (data ?? []).map(mapFaixa);
+}
+
 // Faixas "lançadas" (estagio = lancado) dentre os projetos do artista.
 export async function getLancamentosDoArtista(artistaId: string): Promise<Faixa[]> {
   const projetos = await getProjetosDoArtista(artistaId);

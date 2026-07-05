@@ -8,7 +8,7 @@ import { GraficoLinha } from "@/components/analytics/GraficoLinha";
 import { FiltroAnalytics } from "@/components/analytics/FiltroAnalytics";
 import { ImportarCSV } from "@/components/analytics/ImportarCSV";
 import { SincronizarYoutube } from "@/components/analytics/SincronizarYoutube";
-import { getArtistas, getMetricas, contarStatusYoutube } from "@/lib/db";
+import { getArtistas, getMetricas, contarStatusYoutube, getFaixas, getFaixasDoArtista } from "@/lib/db";
 import {
   totaisMetricas, porFaixa, porMes, porArtistaEPlataforma,
   formatarReceita, formatarStreams, corCategoria,
@@ -21,8 +21,9 @@ export default async function AnalyticsPage({
   searchParams: Promise<{ artista?: string; plataforma?: string }>;
 }) {
   const { artista, plataforma } = await searchParams;
-  const [metricas, artistas, statusYoutube] = await Promise.all([
+  const [metricas, artistas, statusYoutube, faixasRelevantes] = await Promise.all([
     getMetricas(), getArtistas(), contarStatusYoutube(),
+    artista ? getFaixasDoArtista(artista) : getFaixas(),
   ]);
 
   const plataformasDistintas = Array.from(new Set(metricas.map((m) => m.plataforma))).sort();
@@ -32,7 +33,14 @@ export default async function AnalyticsPage({
   );
 
   const totais = totaisMetricas(filtradas);
-  const linhasFaixas = porFaixa(filtradas);
+  // O filtro de plataforma só afeta os números agregados por faixa — o
+  // conjunto de faixas listadas respeita apenas o filtro de artista (ver
+  // faixasRelevantes acima), então uma faixa sem métrica na plataforma
+  // selecionada ainda aparece na tabela, com "—".
+  const linhasFaixas = porFaixa(
+    faixasRelevantes.map((f) => ({ id: f.id, titulo: f.titulo })),
+    filtradas,
+  );
   const linhasMes = porMes(filtradas).map((l) => ({ rotulo: l.rotulo, valor: l.receita }));
   const linhasArtistaPlataforma = porArtistaEPlataforma(filtradas);
 
@@ -42,7 +50,7 @@ export default async function AnalyticsPage({
     cor: corCategoria(p, plataformasDistintas),
   }));
 
-  const faixasMonetizadas = linhasFaixas.length;
+  const faixasMonetizadas = linhasFaixas.filter((l) => l.streams != null).length;
 
   return (
     <div className="p-4 md:p-6">
@@ -62,7 +70,7 @@ export default async function AnalyticsPage({
         </Suspense>
       </div>
 
-      {metricas.length === 0 ? (
+      {metricas.length === 0 && faixasRelevantes.length === 0 ? (
         <EmptyState
           icon={BarChart3}
           title="Nenhuma métrica importada ainda."

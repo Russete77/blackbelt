@@ -61,18 +61,61 @@ describe("porArtista", () => {
 
 describe("porFaixa", () => {
   it("ignora métricas sem faixaId e calcula receita por 1k streams", () => {
-    const linhas = porFaixa([
-      m({ faixaId: "f1", faixaTitulo: "Corre", streams: 2000, receita: 20 }),
-      m({ faixaId: undefined, streams: 999, receita: 99 }),
-    ]);
+    const linhas = porFaixa(
+      [{ id: "f1", titulo: "Corre" }],
+      [
+        m({ faixaId: "f1", faixaTitulo: "Corre", streams: 2000, receita: 20 }),
+        m({ faixaId: undefined, streams: 999, receita: 99 }),
+      ],
+    );
     expect(linhas).toEqual([
       { chave: "f1", rotulo: "Corre", streams: 2000, receita: 20, receitaPor1kStreams: 10 },
     ]);
   });
 
   it("faixa sem streams importados dá receitaPor1kStreams null", () => {
-    const linhas = porFaixa([m({ faixaId: "f1", faixaTitulo: "Corre", streams: undefined, receita: 20 })]);
+    const linhas = porFaixa(
+      [{ id: "f1", titulo: "Corre" }],
+      [m({ faixaId: "f1", faixaTitulo: "Corre", streams: undefined, receita: 20 })],
+    );
     expect(linhas[0].receitaPor1kStreams).toBeNull();
+  });
+
+  it("inclui faixas do catálogo sem nenhuma métrica, com streams/receita null", () => {
+    const linhas = porFaixa(
+      [{ id: "f1", titulo: "Corre" }, { id: "f2", titulo: "Zumbido" }],
+      [m({ faixaId: "f1", faixaTitulo: "Corre", streams: 2000, receita: 20 })],
+    );
+    expect(linhas).toEqual([
+      { chave: "f1", rotulo: "Corre", streams: 2000, receita: 20, receitaPor1kStreams: 10 },
+      { chave: "f2", rotulo: "Zumbido", streams: null, receita: null, receitaPor1kStreams: null },
+    ]);
+  });
+
+  it("ordena: com número primeiro (streams desc), depois sem número em ordem alfabética", () => {
+    const linhas = porFaixa(
+      [
+        { id: "f1", titulo: "Zebra" },
+        { id: "f2", titulo: "Abacaxi" },
+        { id: "f3", titulo: "Corre" },
+        { id: "f4", titulo: "Trem" },
+      ],
+      [
+        m({ faixaId: "f3", faixaTitulo: "Corre", streams: 500, receita: 5 }),
+        m({ faixaId: "f4", faixaTitulo: "Trem", streams: 2000, receita: 20 }),
+      ],
+    );
+    expect(linhas.map((l) => l.rotulo)).toEqual(["Trem", "Corre", "Abacaxi", "Zebra"]);
+  });
+
+  it("faixa presente só na métrica (sem entrar em `faixas`) ainda aparece, usando faixaTitulo", () => {
+    const linhas = porFaixa(
+      [],
+      [m({ faixaId: "f9", faixaTitulo: "Órfã", streams: 100, receita: 1 })],
+    );
+    expect(linhas).toEqual([
+      { chave: "f9", rotulo: "Órfã", streams: 100, receita: 1, receitaPor1kStreams: 10 },
+    ]);
   });
 });
 

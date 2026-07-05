@@ -25,7 +25,15 @@ export interface LinhaAgregada {
   receita: number;
 }
 
-// Linha "por faixa" da tabela do painel — inclui R$/1k streams.
-export interface LinhaFaixaAgregada extends LinhaAgregada {
+// Linha "por faixa" da tabela do painel — resultado do LEFT JOIN entre TODAS
+// as faixas relevantes (catálogo) e seus agregados de métrica. Não estende
+// LinhaAgregada porque aqui streams/receita podem ser null: a faixa existe
+// no catálogo mas ainda não tem nenhuma métrica importada/sincronizada — a
+// UI mostra "—" em vez de somir a linha (ver lib/metricas.ts#porFaixa).
+export interface LinhaFaixaAgregada {
+  chave: string;
+  rotulo: string;
+  streams: number | null;
+  receita: number | null;
   receitaPor1kStreams: number | null;
 }

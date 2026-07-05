@@ -52,16 +52,61 @@ export function porArtista(metricas: MetricaDetalhada[]): LinhaAgregada[] {
   ).sort((a, b) => b.receita - a.receita);
 }
 
-// Só entram faixas resolvidas (faixaId presente) — metricas sem faixa
-// vinculada aparecem só nos totais/por-plataforma, não nesta tabela.
-export function porFaixa(metricas: MetricaDetalhada[]): LinhaFaixaAgregada[] {
-  const linhas = agrupar(
-    metricas.filter((m) => m.faixaId),
-    (m) => m.faixaId ?? null,
-    (chave, m) => m.faixaTitulo ?? chave,
-  ).sort((a, b) => b.receita - a.receita);
+// LEFT JOIN "faixas do catálogo" x "métricas agregadas por faixa": toda
+// faixa em `faixas` aparece uma vez, mesmo sem nenhuma métrica ainda
+// importada/sincronizada (streams/receita null -> "—" na UI). Métricas sem
+// faixaId continuam de fora (só entram nos totais/por-plataforma); uma
+// métrica cujo faixaId não está em `faixas` (não deveria acontecer, mas não
+// é motivo para descartar dado real) ainda entra, usando o título resolvido
+// no join da query (`faixaTitulo`).
+// Ordenação: faixas com número primeiro (streams desc), depois o resto em
+// ordem alfabética — assim quem tem dado real fica no topo e o restante
+// (ainda sem sincronizar/importar) fica previsível de achar.
+export function porFaixa(
+  faixas: { id: string; titulo: string }[],
+  metricas: MetricaDetalhada[],
+): LinhaFaixaAgregada[] {
+  const agregadoPorFaixa = new Map<string, { titulo: string; streams: number; receita: number }>();
+  for (const m of metricas) {
+    if (!m.faixaId) continue;
+    const existente = agregadoPorFaixa.get(m.faixaId);
+    if (existente) {
+      existente.streams += m.streams ?? 0;
+      existente.receita += m.receita ?? 0;
+    } else {
+      agregadoPorFaixa.set(m.faixaId, {
+        titulo: m.faixaTitulo ?? m.faixaId,
+        streams: m.streams ?? 0,
+        receita: m.receita ?? 0,
+      });
+    }
+  }
 
-  return linhas.map((l) => ({ ...l, receitaPor1kStreams: receitaPor1kStreams(l.receita, l.streams) }));
+  const tituloPorId = new Map<string, string>();
+  for (const f of faixas) tituloPorId.set(f.id, f.titulo);
+  for (const [id, agr] of agregadoPorFaixa) if (!tituloPorId.has(id)) tituloPorId.set(id, agr.titulo);
+
+  const linhas: LinhaFaixaAgregada[] = Array.from(tituloPorId.entries()).map(([id, titulo]) => {
+    const agr = agregadoPorFaixa.get(id);
+    const streams = agr ? agr.streams : null;
+    const receita = agr ? agr.receita : null;
+    return {
+      chave: id,
+      rotulo: titulo,
+      streams,
+      receita,
+      receitaPor1kStreams: streams != null && receita != null ? receitaPor1kStreams(receita, streams) : null,
+    };
+  });
+
+  const comNumeros = linhas
+    .filter((l) => l.streams != null)
+    .sort((a, b) => (b.streams as number) - (a.streams as number));
+  const semNumeros = linhas
+    .filter((l) => l.streams == null)
+    .sort((a, b) => a.rotulo.localeCompare(b.rotulo, "pt-BR"));
+
+  return [...comNumeros, ...semNumeros];
 }
 
 // Shape para o gráfico de barras empilhado "streams por artista, por
