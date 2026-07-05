@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { getArtista, getSignedCoverUrl } from "@/lib/db";
 import { ArtistaTabs } from "@/components/artista/ArtistaTabs";
 import { CapaUploader } from "@/components/capa/CapaUploader";
+import { Avatar } from "@/components/ui/Avatar";
 
 export default async function ArtistaLayout({
   children,
@@ -17,24 +18,17 @@ export default async function ArtistaLayout({
   const fotoUrl = artista.fotoUrl ? await getSignedCoverUrl(artista.fotoUrl) : null;
 
   return (
-    <div className="p-4 md:p-6">
-      <div className="mb-6 flex items-center gap-4">
-        {fotoUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={fotoUrl}
-            alt={artista.nome}
-            className="h-16 w-16 rounded-full object-cover"
-          />
-        ) : (
-          <div className="grid h-16 w-16 shrink-0 place-items-center rounded-full bg-surface2 text-lg font-semibold">
-            {artista.nome.slice(0, 2).toUpperCase()}
-          </div>
-        )}
-        <div>
-          <h1 className="text-2xl font-bold">{artista.nome}</h1>
-          {artista.bio && <p className="text-muted text-sm">{artista.bio}</p>}
-          <CapaUploader tipo="artista" id={artista.id} rotulo="Foto" className="mt-1 inline-block" />
+    <div className="relative p-4 md:p-6">
+      <div
+        aria-hidden
+        className="pointer-events-none absolute left-4 top-0 h-40 w-64 rounded-full bg-accent/10 blur-3xl md:left-6"
+      />
+      <div className="relative mb-6 flex animate-fade-in-up items-center gap-4">
+        <Avatar nome={artista.nome} src={fotoUrl ?? undefined} size="lg" />
+        <div className="min-w-0">
+          <h1 className="truncate font-display text-2xl uppercase tracking-tight md:text-3xl">{artista.nome}</h1>
+          {artista.bio && <p className="truncate text-sm text-muted">{artista.bio}</p>}
+          <CapaUploader tipo="artista" id={artista.id} rotulo="Foto" className="mt-1.5 inline-block" />
         </div>
       </div>
       <ArtistaTabs slug={slug} />

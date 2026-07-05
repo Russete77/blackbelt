@@ -17,7 +17,7 @@ export function ArtistaTabs({ slug }: { slug: string }) {
   const base = `/artista/${slug}`;
 
   return (
-    <nav className="flex gap-1 overflow-x-auto border-b border-line [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+    <nav className="flex gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden border-b border-line">
       {ABAS.map((aba) => {
         const href = `${base}${aba.href}`;
         const ativo = path === href;
@@ -26,11 +26,18 @@ export function ArtistaTabs({ slug }: { slug: string }) {
             key={href}
             href={href}
             className={cn(
-              "-mb-px whitespace-nowrap border-b-2 px-3 py-2 text-sm transition",
-              ativo ? "border-accent text-fg" : "border-transparent text-muted hover:text-fg",
+              "relative -mb-px whitespace-nowrap px-3 py-2.5 text-sm transition-colors duration-200",
+              ativo ? "text-fg" : "text-muted hover:text-fg",
             )}
           >
             {aba.label}
+            <span
+              aria-hidden
+              className={cn(
+                "absolute inset-x-2 -bottom-px h-0.5 origin-left scale-x-0 rounded-full bg-accent transition-transform duration-200",
+                ativo && "scale-x-100",
+              )}
+            />
           </Link>
         );
       })}
