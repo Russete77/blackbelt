@@ -15,6 +15,7 @@ import type { RegistrosDaFaixa, StatusRegistroFaixa } from "@/types/registro";
 import type { Notificacao } from "@/types/notificacoes";
 import type { Demanda } from "@/types/demandas";
 import type { Lancamento } from "@/types/lancamentos";
+import type { Clipe } from "@/types/clipes";
 import { normalizarStatusShow, parseRiderCamarim, parseRiderTecnico,
   riderCamarimTemConteudo, riderTecnicoTemConteudo } from "@/lib/shows";
 import {
@@ -1150,4 +1151,44 @@ export async function getLancamentosPlanejadosDoArtista(artistaId: string): Prom
     .order("created_at", { ascending: false });
   if (error) throw error;
   return (data ?? []).map(mapLancamento);
+}
+
+// ------------------------------------------------------------------
+// Clipes — pipeline de videoclipe/curadoria audiovisual (tabela `clipes`).
+// RLS: time vê/mexe, só admin apaga.
+// ------------------------------------------------------------------
+
+interface ClipeRow {
+  id: string; artista_id: string; faixa_id: string | null; titulo: string;
+  status: Clipe["status"]; data_gravacao: string | null; data_estreia: string | null;
+  video_url: string | null; diretor: string | null;
+  demandas: unknown; cue_sheet: unknown; created_at: string;
+}
+
+function mapClipe(row: ClipeRow): Clipe {
+  return {
+    id: row.id,
+    artistaId: row.artista_id,
+    faixaId: row.faixa_id ?? undefined,
+    titulo: row.titulo,
+    status: row.status,
+    dataGravacao: row.data_gravacao ?? undefined,
+    dataEstreia: row.data_estreia ?? undefined,
+    videoUrl: row.video_url ?? undefined,
+    diretor: row.diretor ?? undefined,
+    demandas: Array.isArray(row.demandas) ? (row.demandas as string[]) : [],
+    cueSheet: Array.isArray(row.cue_sheet) ? (row.cue_sheet as Clipe["cueSheet"]) : [],
+    criadoEm: row.created_at,
+  };
+}
+
+export async function getClipesDoArtista(artistaId: string): Promise<Clipe[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("clipes")
+    .select("*")
+    .eq("artista_id", artistaId)
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  return (data ?? []).map(mapClipe);
 }

@@ -2,6 +2,7 @@ import { Video, Music2, MonitorPlay, type LucideIcon } from "lucide-react";
 import type { EstagioPipeline, TipoProjeto, TipoVersao, Prioridade } from "@/types/domain";
 import type { StatusDemanda } from "@/types/demandas";
 import type { StatusLancamento, TipoLancamento } from "@/types/lancamentos";
+import type { StatusClipe } from "@/types/clipes";
 
 export const labelEstagio = (e: EstagioPipeline): string =>
   ({ ideia: "Ideia", gravacao: "Gravação", mixagem: "Mixagem",
@@ -53,3 +54,16 @@ export const labelStatusLancamento = (s: StatusLancamento): string =>
 
 export const toneStatusLancamento = (s: StatusLancamento): "media" | "accent" | "aprovado" =>
   ({ planejado: "media", agendado: "accent", lancado: "aprovado" }[s] as "media" | "accent" | "aprovado");
+
+// Rótulo/tom do módulo Clipes (pipeline de videoclipe, tabela `clipes`).
+export const labelStatusClipe = (s: StatusClipe): string =>
+  ({
+    ideia: "Ideia", pre_producao: "Pré-produção", gravacao: "Gravação",
+    pos_producao: "Pós-produção", lancado: "Lançado",
+  }[s]);
+
+export const toneStatusClipe = (s: StatusClipe): "neutral" | "media" | "accent" | "aprovado" =>
+  ({
+    ideia: "neutral", pre_producao: "media", gravacao: "media",
+    pos_producao: "accent", lancado: "aprovado",
+  }[s] as "neutral" | "media" | "accent" | "aprovado");
