@@ -5,6 +5,7 @@ import { getArtista, getMetricasDoArtista, getFaixasDoArtistaComNumeros } from "
 import { EmptyState } from "@/components/ui/EmptyState";
 import { StatTile } from "@/components/ui/StatTile";
 import { TabelaFaixasSplit } from "@/components/analytics/TabelaFaixasSplit";
+import { DefinirSplitMassa } from "@/components/splits/DefinirSplitMassa";
 import { GraficoBarras, type SerieBarra } from "@/components/analytics/GraficoBarras";
 import { FiltroTaxas } from "@/components/analytics/FiltroTaxas";
 import { ImportarCSV } from "@/components/analytics/ImportarCSV";
@@ -118,6 +119,9 @@ export default async function NumerosPage({
               <Suspense fallback={null}>
                 <FiltroTaxas ryt={taxas.youtube} rsp={taxas.spotify} rdz={taxas.deezer} />
               </Suspense>
+            </div>
+            <div className="mb-3">
+              <DefinirSplitMassa artistaId={artista.id} />
             </div>
             <TabelaFaixasSplit
               linhas={linhasFaixasSplit}
