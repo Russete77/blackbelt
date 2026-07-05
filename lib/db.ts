@@ -1,0 +1,344 @@
+// Camada de dados real (Supabase) — substitui mock/data.ts.
+// Todas as funções retornam os shapes camelCase de types/domain.ts, mapeando
+// a partir das tabelas snake_case do schema (ver supabase/migrations/).
+// Server-only: usa lib/supabase/server.ts (cookies()), então só pode ser
+// chamado a partir de Server Components, Server Actions ou Route Handlers.
+import { cache } from "react";
+import { createClient } from "@/lib/supabase/server";
+import type {
+  Artista, Projeto, Faixa, VersaoFaixa, Comentario, Show, Metrica,
+  TipoProjeto, EstagioPipeline, TipoVersao, CategoriaComentario, Prioridade,
+} from "@/types/domain";
+
+// ------------------------------------------------------------------
+// Formatos das linhas (snake_case) — sem `Database` gerado ainda
+// (supabase gen types); shapes mínimos o bastante para os mapeadores.
+// ------------------------------------------------------------------
+
+interface ArtistaRow {
+  id: string; nome: string; slug: string;
+  bio: string | null; foto_url: string | null; capa_url: string | null;
+}
+interface ProjetoRow {
+  id: string; nome: string; tipo: TipoProjeto; status_geral: EstagioPipeline; capa_url: string | null;
+}
+interface FaixaRow {
+  id: string; projeto_id: string; titulo: string; genero: string | null;
+  estagio: EstagioPipeline; capa_url: string | null; letra: string | null;
+}
+interface VersaoRow {
+  id: string; faixa_id: string; tipo: TipoVersao; rotulo: string;
+  arquivo_path: string | null; duracao_segundos: number | string | null;
+  enviado_por: string | null; created_at: string;
+}
+interface ComentarioRow {
+  id: string; versao_id: string; timestamp_segundos: number | string;
+  categoria: CategoriaComentario; prioridade: Prioridade; responsavel: string | null;
+  autor: string | null; texto: string; resolvido: boolean;
+}
+interface ShowRow {
+  id: string; artista_id: string; data: string | null; local: string | null;
+  cache: number | string | null; status: string | null;
+}
+interface MetricaRow {
+  id: string; artista_id: string; faixa_id: string | null; plataforma: string;
+  data: string; streams: number | string | null; receita: number | string | null;
+}
+interface VinculoProjetoArtistaRow {
+  projeto_id: string;
+  artistas: { nome: string } | null;
+}
+
+// ------------------------------------------------------------------
+// Mapeadores snake_case (linha do banco) -> camelCase (types/domain.ts)
+// ------------------------------------------------------------------
+
+function mapArtista(row: ArtistaRow): Artista {
+  return {
+    id: row.id,
+    nome: row.nome,
+    slug: row.slug,
+    bio: row.bio ?? undefined,
+    fotoUrl: row.foto_url ?? undefined,
+    capaUrl: row.capa_url ?? undefined,
+  };
+}
+
+function mapProjeto(row: ProjetoRow, artistasNomes: string[]): Projeto {
+  return {
+    id: row.id,
+    nome: row.nome,
+    tipo: row.tipo,
+    artistas: artistasNomes,
+    statusGeral: row.status_geral,
+    capaUrl: row.capa_url ?? undefined,
+  };
+}
+
+function mapFaixa(row: FaixaRow): Faixa {
+  return {
+    id: row.id,
+    projetoId: row.projeto_id,
+    titulo: row.titulo,
+    genero: row.genero ?? undefined,
+    estagio: row.estagio,
+    capaUrl: row.capa_url ?? undefined,
+    letra: row.letra ?? undefined,
+  };
+}
+
+function mapVersao(row: VersaoRow, arquivoUrl: string | null): VersaoFaixa {
+  return {
+    id: row.id,
+    faixaId: row.faixa_id,
+    tipo: row.tipo,
+    rotulo: row.rotulo,
+    arquivoPath: row.arquivo_path ?? undefined,
+    arquivoUrl: arquivoUrl ?? "",
+    duracaoSegundos: row.duracao_segundos != null ? Number(row.duracao_segundos) : 0,
+    enviadoPor: row.enviado_por ?? "",
+    data: row.created_at ? String(row.created_at).slice(0, 10) : "",
+  };
+}
+
+function mapComentario(row: ComentarioRow, autorNome?: string): Comentario {
+  return {
+    id: row.id,
+    versaoId: row.versao_id,
+    timestampSegundos: Number(row.timestamp_segundos),
+    categoria: row.categoria,
+    prioridade: row.prioridade,
+    responsavel: row.responsavel ?? undefined,
+    autor: row.autor ?? "",
+    autorNome,
+    texto: row.texto,
+    resolvido: row.resolvido,
+  };
+}
+
+function mapShow(row: ShowRow): Show {
+  return {
+    id: row.id,
+    artistaId: row.artista_id,
+    data: row.data ?? undefined,
+    local: row.local ?? undefined,
+    cache: row.cache != null ? Number(row.cache) : undefined,
+    status: row.status ?? undefined,
+  };
+}
+
+function mapMetrica(row: MetricaRow): Metrica {
+  return {
+    id: row.id,
+    artistaId: row.artista_id,
+    faixaId: row.faixa_id ?? undefined,
+    plataforma: row.plataforma,
+    data: row.data,
+    streams: row.streams != null ? Number(row.streams) : undefined,
+    receita: row.receita != null ? Number(row.receita) : undefined,
+  };
+}
+
+// ------------------------------------------------------------------
+// Artistas
+// ------------------------------------------------------------------
+
+export async function getArtistas(): Promise<Artista[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.from("artistas").select("*").order("nome");
+  if (error) throw error;
+  return (data ?? []).map(mapArtista);
+}
+
+// cache() dedupe: layout + páginas da rota /artista/[slug]/* chamam a mesma
+// consulta no mesmo request; React memoiza o resultado por render pass.
+export const getArtista = cache(async (slug: string): Promise<Artista | null> => {
+  const supabase = await createClient();
+  const { data, error } = await supabase.from("artistas").select("*").eq("slug", slug).maybeSingle();
+  if (error) throw error;
+  return data ? mapArtista(data) : null;
+});
+
+// ------------------------------------------------------------------
+// Projetos (+ nomes de artistas vinculados via projeto_artistas)
+// ------------------------------------------------------------------
+
+async function attachArtistasNomes(rows: ProjetoRow[]): Promise<Projeto[]> {
+  if (rows.length === 0) return [];
+  const supabase = await createClient();
+  const ids = rows.map((r) => r.id);
+  const { data: vinculos, error } = await supabase
+    .from("projeto_artistas")
+    .select("projeto_id, artistas(nome)")
+    .in("projeto_id", ids)
+    .returns<VinculoProjetoArtistaRow[]>();
+  if (error) throw error;
+
+  const nomesPorProjeto = new Map<string, string[]>();
+  for (const v of vinculos ?? []) {
+    const nome = v.artistas?.nome;
+    if (!nome) continue;
+    const arr = nomesPorProjeto.get(v.projeto_id) ?? [];
+    arr.push(nome);
+    nomesPorProjeto.set(v.projeto_id, arr);
+  }
+  return rows.map((r) => mapProjeto(r, nomesPorProjeto.get(r.id) ?? []));
+}
+
+export async function getTodosProjetos(): Promise<Projeto[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.from("projetos").select("*").order("created_at", { ascending: false });
+  if (error) throw error;
+  return attachArtistasNomes(data ?? []);
+}
+
+export async function getProjetosDoArtista(artistaId: string): Promise<Projeto[]> {
+  const supabase = await createClient();
+  const { data: links, error } = await supabase
+    .from("projeto_artistas")
+    .select("projeto_id")
+    .eq("artista_id", artistaId);
+  if (error) throw error;
+
+  const projetoIds = (links ?? []).map((l) => l.projeto_id);
+  if (projetoIds.length === 0) return [];
+
+  const { data: rows, error: projError } = await supabase.from("projetos").select("*").in("id", projetoIds);
+  if (projError) throw projError;
+  return attachArtistasNomes(rows ?? []);
+}
+
+// Projetos do Selo: sem nenhum vínculo em projeto_artistas (label-wide).
+export async function getProjetosDoSelo(): Promise<Projeto[]> {
+  const supabase = await createClient();
+  const { data: rows, error } = await supabase.from("projetos").select("*").order("created_at", { ascending: false });
+  if (error) throw error;
+
+  const { data: vinculos, error: vError } = await supabase.from("projeto_artistas").select("projeto_id");
+  if (vError) throw vError;
+
+  const comArtista = new Set((vinculos ?? []).map((v) => v.projeto_id));
+  const seloRows = (rows ?? []).filter((r) => !comArtista.has(r.id));
+  return seloRows.map((r) => mapProjeto(r, []));
+}
+
+// ------------------------------------------------------------------
+// Faixas
+// ------------------------------------------------------------------
+
+export async function getFaixasDoProjeto(projetoId: string): Promise<Faixa[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("faixas")
+    .select("*")
+    .eq("projeto_id", projetoId)
+    .order("created_at");
+  if (error) throw error;
+  return (data ?? []).map(mapFaixa);
+}
+
+export async function getFaixa(id: string): Promise<Faixa | null> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.from("faixas").select("*").eq("id", id).maybeSingle();
+  if (error) throw error;
+  return data ? mapFaixa(data) : null;
+}
+
+// Faixas "lançadas" (estagio = lancado) dentre os projetos do artista.
+export async function getLancamentosDoArtista(artistaId: string): Promise<Faixa[]> {
+  const projetos = await getProjetosDoArtista(artistaId);
+  const projetoIds = projetos.map((p) => p.id);
+  if (projetoIds.length === 0) return [];
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("faixas")
+    .select("*")
+    .in("projeto_id", projetoIds)
+    .eq("estagio", "lancado");
+  if (error) throw error;
+  return (data ?? []).map(mapFaixa);
+}
+
+// ------------------------------------------------------------------
+// Versões + áudio (Storage, bucket privado `audio`)
+// ------------------------------------------------------------------
+
+export async function getSignedAudioUrl(arquivoPath: string, expiresIn = 3600): Promise<string | null> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.storage.from("audio").createSignedUrl(arquivoPath, expiresIn);
+  if (error) {
+    console.error("getSignedAudioUrl:", error.message);
+    return null;
+  }
+  return data.signedUrl;
+}
+
+export async function getVersoesDaFaixa(faixaId: string): Promise<VersaoFaixa[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("versoes")
+    .select("*")
+    .eq("faixa_id", faixaId)
+    .order("created_at");
+  if (error) throw error;
+
+  return Promise.all(
+    (data ?? []).map(async (row) => {
+      const url = row.arquivo_path ? await getSignedAudioUrl(row.arquivo_path) : null;
+      return mapVersao(row, url);
+    }),
+  );
+}
+
+// ------------------------------------------------------------------
+// Comentários (join manual com profiles — não há FK direta comentarios->profiles)
+// ------------------------------------------------------------------
+
+export async function getComentariosDaVersao(versaoId: string): Promise<Comentario[]> {
+  const supabase = await createClient();
+  const { data: rows, error } = await supabase
+    .from("comentarios")
+    .select("*")
+    .eq("versao_id", versaoId)
+    .order("timestamp_segundos");
+  if (error) throw error;
+
+  const autorIds = Array.from(new Set((rows ?? []).map((r) => r.autor).filter(Boolean)));
+  let nomes = new Map<string, string>();
+  if (autorIds.length > 0) {
+    const { data: perfis, error: perfisError } = await supabase
+      .from("profiles")
+      .select("id, nome")
+      .in("id", autorIds);
+    if (perfisError) throw perfisError;
+    nomes = new Map((perfis ?? []).map((p) => [p.id, p.nome]));
+  }
+
+  return (rows ?? []).map((r) => mapComentario(r, nomes.get(r.autor) ?? undefined));
+}
+
+// ------------------------------------------------------------------
+// Shows e Métricas (abas mínimas do workspace do artista)
+// ------------------------------------------------------------------
+
+export async function getShowsDoArtista(artistaId: string): Promise<Show[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("shows")
+    .select("*")
+    .eq("artista_id", artistaId)
+    .order("data", { ascending: false });
+  if (error) throw error;
+  return (data ?? []).map(mapShow);
+}
+
+export async function getMetricasDoArtista(artistaId: string): Promise<Metrica[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("metricas")
+    .select("*")
+    .eq("artista_id", artistaId)
+    .order("data", { ascending: false });
+  if (error) throw error;
+  return (data ?? []).map(mapMetrica);
+}
