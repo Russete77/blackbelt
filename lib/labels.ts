@@ -1,6 +1,7 @@
 import { Video, Music2, MonitorPlay, type LucideIcon } from "lucide-react";
 import type { EstagioPipeline, TipoProjeto, TipoVersao, Prioridade } from "@/types/domain";
 import type { StatusDemanda } from "@/types/demandas";
+import type { StatusLancamento, TipoLancamento } from "@/types/lancamentos";
 
 export const labelEstagio = (e: EstagioPipeline): string =>
   ({ ideia: "Ideia", gravacao: "Gravação", mixagem: "Mixagem",
@@ -41,3 +42,14 @@ export const labelStatusDemanda = (s: StatusDemanda): string =>
 
 export const toneStatusDemanda = (s: StatusDemanda): "media" | "accent" | "aprovado" =>
   ({ aberta: "media", em_andamento: "accent", concluida: "aprovado" }[s] as "media" | "accent" | "aprovado");
+
+// Rótulo/tom do módulo Lançamentos (planejamento de release, tabela
+// `lancamentos` — distinto de "faixa com estagio=lancado").
+export const labelTipoLancamento = (t: TipoLancamento): string =>
+  ({ single: "Single", ep: "EP", album: "Álbum" }[t]);
+
+export const labelStatusLancamento = (s: StatusLancamento): string =>
+  ({ planejado: "Planejado", agendado: "Agendado", lancado: "Lançado" }[s]);
+
+export const toneStatusLancamento = (s: StatusLancamento): "media" | "accent" | "aprovado" =>
+  ({ planejado: "media", agendado: "accent", lancado: "aprovado" }[s] as "media" | "accent" | "aprovado");

@@ -10,7 +10,7 @@ import { ImagePlus } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/cn";
 
-type TipoCapa = "artista" | "projeto" | "faixa";
+type TipoCapa = "artista" | "projeto" | "faixa" | "lancamento";
 
 const EXTENSOES_IMAGEM = ["jpg", "jpeg", "png", "webp"];
 const TAMANHO_MAX_MB = 10;
@@ -19,6 +19,9 @@ const ALVOS: Record<TipoCapa, { tabela: string; coluna: string }> = {
   artista: { tabela: "artistas", coluna: "foto_url" },
   projeto: { tabela: "projetos", coluna: "capa_url" },
   faixa: { tabela: "faixas", coluna: "capa_url" },
+  // Capa de um lançamento (tabela `lancamentos`, aba Lançamentos do artista)
+  // — só disponível em modo edição (precisa de um id já existente).
+  lancamento: { tabela: "lancamentos", coluna: "capa_url" },
 };
 
 export function CapaUploader({

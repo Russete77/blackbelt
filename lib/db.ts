@@ -14,6 +14,7 @@ import type { MetricaDetalhada } from "@/types/analytics";
 import type { RegistrosDaFaixa, StatusRegistroFaixa } from "@/types/registro";
 import type { Notificacao } from "@/types/notificacoes";
 import type { Demanda } from "@/types/demandas";
+import type { Lancamento } from "@/types/lancamentos";
 import { normalizarStatusShow, parseRiderCamarim, parseRiderTecnico,
   riderCamarimTemConteudo, riderTecnicoTemConteudo } from "@/lib/shows";
 import {
@@ -1105,4 +1106,48 @@ export async function getDemandasDoArtista(artistaId: string): Promise<Demanda[]
     .order("created_at", { ascending: false });
   if (error) throw error;
   return (data ?? []).map(mapDemanda);
+}
+
+// ------------------------------------------------------------------
+// Lançamentos — planejamento de release (tabela `lancamentos`: data,
+// plataformas, ISRC, checklist D-30 -> D0). Distinto de
+// getLancamentosDoArtista (acima), que lista faixas com estagio='lancado' —
+// nome já em uso por aquela função antes desta tabela existir, então esta
+// usa um nome próprio para não colidir. RLS: time vê/mexe, só admin apaga.
+// ------------------------------------------------------------------
+
+interface LancamentoRow {
+  id: string; artista_id: string; faixa_id: string | null; titulo: string;
+  tipo: Lancamento["tipo"]; data_lancamento: string | null;
+  plataformas: unknown; isrc: string | null; capa_url: string | null;
+  status: Lancamento["status"]; checklist: unknown; created_at: string;
+}
+
+function mapLancamento(row: LancamentoRow): Lancamento {
+  return {
+    id: row.id,
+    artistaId: row.artista_id,
+    faixaId: row.faixa_id ?? undefined,
+    titulo: row.titulo,
+    tipo: row.tipo,
+    dataLancamento: row.data_lancamento ?? undefined,
+    plataformas: Array.isArray(row.plataformas) ? (row.plataformas as string[]) : [],
+    isrc: row.isrc ?? undefined,
+    capaUrl: row.capa_url ?? undefined,
+    status: row.status,
+    checklist: Array.isArray(row.checklist) ? (row.checklist as Lancamento["checklist"]) : [],
+    criadoEm: row.created_at,
+  };
+}
+
+export async function getLancamentosPlanejadosDoArtista(artistaId: string): Promise<Lancamento[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("lancamentos")
+    .select("*")
+    .eq("artista_id", artistaId)
+    .order("data_lancamento", { ascending: true, nullsFirst: false })
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  return (data ?? []).map(mapLancamento);
 }
