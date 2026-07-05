@@ -22,10 +22,21 @@ export async function enviarLinkMagico(_estado: LoginState, formData: FormData):
 
   const { error } = await supabase.auth.signInWithOtp({
     email,
-    options: { emailRedirectTo: `${origin}/auth/callback` },
+    options: {
+      emailRedirectTo: `${origin}/auth/callback`,
+      // Acesso por convite: nunca criar usuário novo a partir do formulário.
+      shouldCreateUser: false,
+    },
   });
 
   if (error) {
+    // "Signups not allowed for otp" = e-mail sem convite
+    if (/signup/i.test(error.message) || error.code === "otp_disabled") {
+      return {
+        status: "error",
+        message: "Este e-mail não tem convite. Fale com a Produção para receber acesso.",
+      };
+    }
     return {
       status: "error",
       message: "Não foi possível enviar o link. Verifique o e-mail e tente novamente.",
