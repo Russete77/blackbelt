@@ -5,6 +5,7 @@ import { cn } from "@/lib/cn";
 
 const ABAS = [
   { href: "", label: "Projetos/Faixas" },
+  { href: "/feats", label: "Feats" },
   { href: "/lancamentos", label: "Lançamentos" },
   { href: "/shows", label: "Shows" },
   { href: "/numeros", label: "Números" },

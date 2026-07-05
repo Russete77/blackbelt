@@ -4,7 +4,10 @@ import { ProjetoCard } from "@/components/estudio/ProjetoCard";
 import { SubirMusica } from "@/components/estudio/SubirMusica";
 import { NovoProjetoForm } from "@/components/artista/NovoProjetoForm";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { getArtista, getProjetosDoArtista, getFaixasDosProjetos, getSignedCoverUrl, getViewsPorFaixa } from "@/lib/db";
+import {
+  getArtista, getProjetosDoArtista, getFaixasDosProjetos, getSignedCoverUrl, getViewsPorFaixa,
+  filtrarProjetosEstudio,
+} from "@/lib/db";
 
 export default async function ArtistaProjetosPage({
   params,
@@ -17,10 +20,13 @@ export default async function ArtistaProjetosPage({
 
   const projetos = await getProjetosDoArtista(artista.id);
   const faixasPorProjeto = await getFaixasDosProjetos(projetos.map((p) => p.id));
-  const todasFaixaIds = Array.from(faixasPorProjeto.values()).flatMap((fs) => fs.map((f) => f.id));
+  // Só projetos de estúdio aqui — os 100% footprint (Catálogo,
+  // Aparições/Footprint, Canal YouTube) viraram a aba Feats.
+  const projetosEstudio = filtrarProjetosEstudio(projetos, faixasPorProjeto);
+  const todasFaixaIds = projetosEstudio.flatMap((p) => (faixasPorProjeto.get(p.id) ?? []).map((f) => f.id));
   const viewsPorFaixa = await getViewsPorFaixa(todasFaixaIds);
   const projetosComFaixas = await Promise.all(
-    projetos.map(async (projeto) => ({
+    projetosEstudio.map(async (projeto) => ({
       projeto: projeto.capaUrl
         ? { ...projeto, capaUrl: (await getSignedCoverUrl(projeto.capaUrl)) ?? undefined }
         : projeto,

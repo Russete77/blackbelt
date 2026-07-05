@@ -335,6 +335,44 @@ export async function getFaixasDoArtista(artistaId: string): Promise<Faixa[]> {
   return (data ?? []).map(mapFaixa);
 }
 
+// Projetos "de estúdio" do artista: têm ao menos uma faixa 'estudio'
+// (produzida pelo selo), OU não têm faixa footprint nenhuma ainda (projeto
+// novo, recém-criado, sem faixa) — exclui projetos "guarda-chuva" 100%
+// footprint (Catálogo, Aparições/Footprint, Canal YouTube importados), que
+// agora vivem só na aba Feats (ver getFaixasFootprintDoArtista). Função pura
+// (sem chamada ao banco): recebe os mesmos `projetos`/`faixasPorProjeto` que
+// a página "Projetos/Faixas" já busca, pra não duplicar a consulta.
+export function filtrarProjetosEstudio(projetos: Projeto[], faixasPorProjeto: Map<string, Faixa[]>): Projeto[] {
+  return projetos.filter((p) => {
+    const faixas = faixasPorProjeto.get(p.id) ?? [];
+    const temEstudio = faixas.some((f) => f.origem !== "footprint");
+    const temFootprint = faixas.some((f) => f.origem === "footprint");
+    return temEstudio || !temFootprint;
+  });
+}
+
+// Faixas footprint (feat/lançamento externo, origem='footprint') do artista,
+// agrupadas pelo projeto "guarda-chuva" de origem (Catálogo, Aparições,
+// Canal YouTube) — base da aba Feats (app/(app)/artista/[slug]/feats).
+// Projetos sem nenhuma faixa footprint ficam de fora (já aparecem em
+// Projetos/Faixas via filtrarProjetosEstudio).
+export interface GrupoFeatsDoArtista {
+  projeto: Projeto;
+  faixas: Faixa[];
+}
+
+export async function getFaixasFootprintDoArtista(artistaId: string): Promise<GrupoFeatsDoArtista[]> {
+  const projetos = await getProjetosDoArtista(artistaId);
+  if (projetos.length === 0) return [];
+  const faixasPorProjeto = await getFaixasDosProjetos(projetos.map((p) => p.id));
+  return projetos
+    .map((projeto) => ({
+      projeto,
+      faixas: (faixasPorProjeto.get(projeto.id) ?? []).filter((f) => f.origem === "footprint"),
+    }))
+    .filter((grupo) => grupo.faixas.length > 0);
+}
+
 // Faixas "lançadas" (estagio = lancado) dentre os projetos do artista.
 export async function getLancamentosDoArtista(artistaId: string): Promise<Faixa[]> {
   const projetos = await getProjetosDoArtista(artistaId);

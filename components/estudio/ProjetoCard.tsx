@@ -1,12 +1,12 @@
 import Link from "next/link";
-import { Disc3, Music, Video } from "lucide-react";
+import { Disc3, Music } from "lucide-react";
 import { Card, CardBody } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Cover } from "@/components/ui/Cover";
 import { CapaUploader } from "@/components/capa/CapaUploader";
+import { FootprintFaixaCard } from "@/components/estudio/FootprintFaixaCard";
 import { labelEstagio, labelTipoProjeto } from "@/lib/labels";
-import { capaPublicaOuThumbnail, isProjetoFootprint } from "@/lib/faixa";
-import { formatarStreams } from "@/lib/metricas";
+import { isProjetoFootprint } from "@/lib/faixa";
 import type { Faixa, Projeto } from "@/types/domain";
 
 export function ProjetoCard({
@@ -76,29 +76,7 @@ export function ProjetoCard({
         {faixasFootprint.length > 0 && (
           <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {faixasFootprint.map((f) => (
-              <Link
-                key={f.id}
-                href={`/faixa/${f.id}`}
-                title={f.titulo}
-                className="group flex flex-col overflow-hidden rounded-lg border border-line bg-surface2/40 transition-all duration-200 hover:-translate-y-0.5 hover:border-accent/50 hover:shadow-lg hover:shadow-black/20"
-              >
-                <Cover
-                  src={capaPublicaOuThumbnail(f)}
-                  alt={`Capa de ${f.titulo}`}
-                  icon={Music}
-                  size="fill"
-                  className="rounded-none"
-                />
-                <div className="flex flex-1 flex-col gap-1.5 p-3">
-                  <p className="line-clamp-2 text-sm font-medium leading-snug transition-colors duration-200 group-hover:text-accent">
-                    {f.titulo}
-                  </p>
-                  <p className="mt-auto flex items-center gap-1.5 font-mono text-xs text-muted">
-                    <Video className="h-3.5 w-3.5 shrink-0" aria-hidden />
-                    {viewsPorFaixa[f.id] != null ? formatarStreams(viewsPorFaixa[f.id]) : "—"}
-                  </p>
-                </div>
-              </Link>
+              <FootprintFaixaCard key={f.id} faixa={f} views={viewsPorFaixa[f.id]} />
             ))}
           </div>
         )}
