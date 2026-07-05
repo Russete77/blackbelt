@@ -1,6 +1,9 @@
 import { Video, Music2, MonitorPlay, type LucideIcon } from "lucide-react";
 import type { EstagioPipeline, TipoProjeto, TipoVersao, Prioridade } from "@/types/domain";
 import type { StatusDemanda } from "@/types/demandas";
+import type { StatusLancamento, TipoLancamento } from "@/types/lancamentos";
+import type { StatusClipe } from "@/types/clipes";
+import type { TipoDocumento } from "@/types/documentos";
 
 export const labelEstagio = (e: EstagioPipeline): string =>
   ({ ideia: "Ideia", gravacao: "Gravação", mixagem: "Mixagem",
@@ -41,3 +44,31 @@ export const labelStatusDemanda = (s: StatusDemanda): string =>
 
 export const toneStatusDemanda = (s: StatusDemanda): "media" | "accent" | "aprovado" =>
   ({ aberta: "media", em_andamento: "accent", concluida: "aprovado" }[s] as "media" | "accent" | "aprovado");
+
+// Rótulo/tom do módulo Lançamentos (planejamento de release, tabela
+// `lancamentos` — distinto de "faixa com estagio=lancado").
+export const labelTipoLancamento = (t: TipoLancamento): string =>
+  ({ single: "Single", ep: "EP", album: "Álbum" }[t]);
+
+export const labelStatusLancamento = (s: StatusLancamento): string =>
+  ({ planejado: "Planejado", agendado: "Agendado", lancado: "Lançado" }[s]);
+
+export const toneStatusLancamento = (s: StatusLancamento): "media" | "accent" | "aprovado" =>
+  ({ planejado: "media", agendado: "accent", lancado: "aprovado" }[s] as "media" | "accent" | "aprovado");
+
+// Rótulo/tom do módulo Clipes (pipeline de videoclipe, tabela `clipes`).
+export const labelStatusClipe = (s: StatusClipe): string =>
+  ({
+    ideia: "Ideia", pre_producao: "Pré-produção", gravacao: "Gravação",
+    pos_producao: "Pós-produção", lancado: "Lançado",
+  }[s]);
+
+export const toneStatusClipe = (s: StatusClipe): "neutral" | "media" | "accent" | "aprovado" =>
+  ({
+    ideia: "neutral", pre_producao: "media", gravacao: "media",
+    pos_producao: "accent", lancado: "aprovado",
+  }[s] as "neutral" | "media" | "accent" | "aprovado");
+
+// Rótulo do módulo Documentos (contratos/splits/outros, tabela `documentos`).
+export const labelTipoDocumento = (t: TipoDocumento): string =>
+  ({ contrato: "Contrato", split: "Split", outro: "Outro" }[t]);

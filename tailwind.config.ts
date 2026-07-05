@@ -38,10 +38,24 @@ export default {
           "0%, 100%": { opacity: "1" },
           "50%": { opacity: "0.7" },
         },
+        // Backdrop de components/ui/Modal.tsx — só opacidade (o painel do
+        // modal já tem seu próprio slide/fade, não translada junto).
+        "fade-in": {
+          "0%": { opacity: "0" },
+          "100%": { opacity: "1" },
+        },
+        // Painel do Modal em telas pequenas (bottom-sheet: sobe da borda
+        // inferior); em md+ o Modal usa fade-in-up (dialog centralizado).
+        "sheet-up": {
+          "0%": { transform: "translateY(100%)" },
+          "100%": { transform: "translateY(0)" },
+        },
       },
       animation: {
         "fade-in-up": "fade-in-up 0.5s cubic-bezier(0.16, 1, 0.3, 1) both",
         "pulse-soft": "pulse-soft 2s ease-in-out infinite",
+        "fade-in": "fade-in 0.2s ease-out both",
+        "sheet-up": "sheet-up 0.35s cubic-bezier(0.16, 1, 0.3, 1) both",
       },
     },
   },

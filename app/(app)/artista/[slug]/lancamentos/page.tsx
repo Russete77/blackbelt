@@ -1,9 +1,16 @@
 import { notFound } from "next/navigation";
-import { Music } from "lucide-react";
-import { getArtista, getLancamentosDoArtista } from "@/lib/db";
-import { labelEstagio } from "@/lib/labels";
-import { EmptyState } from "@/components/ui/EmptyState";
+import {
+  getArtista, getFaixasDoArtista, getLancamentosPlanejadosDoArtista, getSignedCoverUrl,
+} from "@/lib/db";
+import { createClient } from "@/lib/supabase/server";
+import { ListaLancamentos } from "@/components/lancamentos/ListaLancamentos";
+import { NovoLancamentoButton } from "@/components/lancamentos/NovoLancamentoButton";
 
+// Aba Lançamentos do workspace do artista: planejamento de release (tabela
+// própria `lancamentos` — data, plataformas, ISRC, checklist D-30 -> D0),
+// distinto das faixas com estagio='lancado' (que continuam só na aba
+// Projetos/Faixas). "Novo lançamento" e "Editar" abrem o mesmo Modal
+// (LancamentoFormModal), pré-preenchido em modo edição.
 export default async function LancamentosPage({
   params,
 }: {
@@ -13,27 +20,36 @@ export default async function LancamentosPage({
   const artista = await getArtista(slug);
   if (!artista) return notFound();
 
-  const faixas = await getLancamentosDoArtista(artista.id);
+  const [lancamentos, faixas, supabase] = await Promise.all([
+    getLancamentosPlanejadosDoArtista(artista.id),
+    getFaixasDoArtista(artista.id),
+    createClient(),
+  ]);
+  const { data: { user } } = await supabase.auth.getUser();
+  const podeExcluir = user?.app_metadata?.role === "admin";
+
+  const capasAssinadas = Object.fromEntries(
+    await Promise.all(
+      lancamentos
+        .filter((l) => l.capaUrl)
+        .map(async (l) => [l.id, await getSignedCoverUrl(l.capaUrl!)] as const),
+    ),
+  );
 
   return (
     <div>
-      <h2 className="mb-3 text-lg font-semibold">Lançamentos</h2>
-      {faixas.length === 0 ? (
-        <EmptyState
-          icon={Music}
-          title={`Nenhum lançamento registrado ainda para ${artista.nome}.`}
-          hint="Faixas marcadas como lançadas aparecem aqui automaticamente."
-        />
-      ) : (
-        <ul className="divide-y divide-line">
-          {faixas.map((f) => (
-            <li key={f.id} className="flex items-center justify-between gap-3 py-2.5 text-sm">
-              <span className="truncate">{f.titulo}</span>
-              <span className="shrink-0 text-xs text-muted">{labelEstagio(f.estagio)}</span>
-            </li>
-          ))}
-        </ul>
-      )}
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <h2 className="text-lg font-semibold">Lançamentos</h2>
+        <NovoLancamentoButton artistaId={artista.id} faixas={faixas} />
+      </div>
+      <ListaLancamentos
+        lancamentos={lancamentos}
+        artistaId={artista.id}
+        faixas={faixas}
+        capasAssinadas={capasAssinadas}
+        podeExcluir={podeExcluir}
+        caminho={`/artista/${slug}/lancamentos`}
+      />
     </div>
   );
 }
