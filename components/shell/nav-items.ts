@@ -10,7 +10,7 @@ export const navItems: NavItem[] = [
   { href: "/artistas", label: "Artistas", icon: Users, disponivel: true },
   { href: "/estudio", label: "Estúdio", icon: Headphones, disponivel: true },
   { href: "/analytics", label: "Analytics", icon: BarChart3, disponivel: true },
-  { href: "/previsao", label: "Previsão", icon: TrendingUp, disponivel: false },
+  { href: "/previsao", label: "Previsão", icon: TrendingUp, disponivel: true },
   { href: "/shows", label: "Shows", icon: Mic2, disponivel: true },
   { href: "/registro", label: "Registro", icon: FileText, disponivel: true },
 ];
