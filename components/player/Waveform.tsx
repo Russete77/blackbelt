@@ -4,58 +4,63 @@ import WaveSurfer from "wavesurfer.js";
 import RegionsPlugin, { type Region } from "wavesurfer.js/dist/plugins/regions.esm.js";
 import { AlertTriangle, Repeat, X, ZoomIn, ZoomOut } from "lucide-react";
 import { usePlayer } from "./PlayerContext";
+import { formatTempo } from "./format";
 import { tokens } from "@/lib/tokens";
-import { cn } from "@/lib/cn";
+import type { Comentario } from "@/types/domain";
 
 // cor neutra da onda não-tocada (independe do rebrand)
 const WAVE_COLOR = "#3A3A40";
 // zoom em px por segundo: 0 = onda ajustada à largura; máx dá precisão fina.
 const ZOOM_MAX = 500;
 const ZOOM_PASSO = 50;
+// Janela do loop de um comentário: alguns segundos antes (contexto) e vários
+// depois (tempo suficiente pra ouvir o problema e corrigir).
+const LOOP_ANTES_SEGUNDOS = 2;
+const LOOP_DEPOIS_SEGUNDOS = 6;
 
 export function Waveform({
-  versaoId, arquivoUrl, height = 96, onInteraction, onZoomAtivo,
+  versaoId, arquivoUrl, comentarios, height = 96, onInteraction,
 }: {
   versaoId: string;
   arquivoUrl: string;
+  // Comentários da versão exibida — viram marcadores fixos na onda (região de
+  // largura zero do plugin Regions, então zoom/scroll não os desalinha).
+  comentarios: Comentario[];
   height?: number;
   // Chamado quando o usuário clica/arrasta na onda, com o tempo (s) do ponto.
   onInteraction?: (segundos: number) => void;
-  // Chamado quando o zoom entra/sai do modo ajustado (a onda passa a rolar,
-  // então overlays por % — como os pinos — deixam de alinhar).
-  onZoomAtivo?: (ativo: boolean) => void;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const player = usePlayer();
   const wsRef = useRef<WaveSurfer | null>(null);
   const regionsRef = useRef<RegionsPlugin | null>(null);
-  const regiaoRef = useRef<Region | null>(null);
-  const loopRef = useRef(false);
+  const marcadoresRef = useRef<Region[]>([]);
+  const loopRegiaoRef = useRef<Region | null>(null);
 
   const [zoomPx, setZoomPx] = useState(0);
-  const [temRegiao, setTemRegiao] = useState(false);
-  const [loopAtivo, setLoopAtivo] = useState(false);
   const [erroCarga, setErroCarga] = useState(false);
   const [tentativa, setTentativa] = useState(0);
 
   // Refs para não recriar o wavesurfer quando os callbacks mudam de identidade.
   const onInteractionRef = useRef(onInteraction);
-  const onZoomAtivoRef = useRef(onZoomAtivo);
   useEffect(() => {
     onInteractionRef.current = onInteraction;
-    onZoomAtivoRef.current = onZoomAtivo;
-  }, [onInteraction, onZoomAtivo]);
+  }, [onInteraction]);
+  // Última lista de comentários, para o efeito de loop não recriar a região
+  // (e reiniciar a repetição) quando só a lista muda por outro motivo.
+  const comentariosRef = useRef(comentarios);
+  useEffect(() => {
+    comentariosRef.current = comentarios;
+  }, [comentarios]);
 
   useEffect(() => {
     if (!containerRef.current || !arquivoUrl) return;
-    // Versão nova = instância nova: zera zoom, trecho e loop.
+    // Versão nova = instância nova: zera zoom e loop.
     setErroCarga(false);
     setZoomPx(0);
-    setTemRegiao(false);
-    setLoopAtivo(false);
-    loopRef.current = false;
-    regiaoRef.current = null;
-    onZoomAtivoRef.current?.(false);
+    marcadoresRef.current = [];
+    loopRegiaoRef.current = null;
+    player.pararLoopComentario();
 
     const regions = RegionsPlugin.create();
     const ws = WaveSurfer.create({
@@ -68,6 +73,9 @@ export function Waveform({
       barWidth: 2,
       barGap: 1,
       barRadius: 2,
+      // Arrastar na onda move o playhead (scrub), como num editor — precisa
+      // ficar livre mesmo com zoom, então nada de região por arraste aqui.
+      dragToSeek: true,
       plugins: [regions],
     });
     wsRef.current = ws;
@@ -83,42 +91,108 @@ export function Waveform({
     ws.on("error", () => setErroCarga(true));
     ws.setPlaybackRate(player.velocidade);
 
-    // Arrastar num espaço vazio da onda cria o trecho (uma região por vez).
-    regions.enableDragSelection({ color: `${tokens.colors.accent}26` });
-    regions.on("region-created", (region) => {
-      regiaoRef.current = region;
-      setTemRegiao(true);
-      regions.getRegions().forEach((r) => {
-        if (r !== region) r.remove();
-      });
-    });
-    regions.on("region-removed", (region) => {
-      if (regiaoRef.current === region) {
-        regiaoRef.current = null;
-        setTemRegiao(false);
-        setLoopAtivo(false);
-        loopRef.current = false;
+    // Clique num marcador de comentário (região de largura zero) navega até
+    // ele em vez de abrir "novo comentário" no clique subjacente da onda.
+    regions.on("region-clicked", (region, e) => {
+      if (region.start === region.end) {
+        e.stopPropagation();
+        player.seek(region.start);
       }
     });
-    // Loop: ao sair do trecho, volta para o início dele.
+    // Loop do trecho de um comentário: ao sair da região, volta pro início —
+    // repete até o usuário desligar (ver useEffect de loopComentarioId abaixo).
     regions.on("region-out", (region) => {
-      if (loopRef.current && regiaoRef.current === region) region.play();
+      if (loopRegiaoRef.current === region) region.play();
     });
 
     return () => {
       player.registerWavesurfer(null);
       wsRef.current = null;
       regionsRef.current = null;
-      regiaoRef.current = null;
+      marcadoresRef.current = [];
+      loopRegiaoRef.current = null;
       ws.destroy();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [versaoId, arquivoUrl, tentativa]);
 
+  // Marcadores dos comentários: recriados sempre que a lista mudar (novo
+  // comentário, edição etc.), sem recriar o wavesurfer inteiro.
+  useEffect(() => {
+    const regions = regionsRef.current;
+    if (!regions) return;
+    marcadoresRef.current.forEach((r) => r.remove());
+    marcadoresRef.current = comentarios.map((c) => {
+      const ponto = document.createElement("span");
+      ponto.style.cssText = [
+        "position:absolute", "top:-11px", "left:0", "transform:translateX(-50%)",
+        "width:12px", "height:12px", "border-radius:9999px",
+        `border:1px solid ${tokens.colors.bg}`, `background:${tokens.colors.accent}`,
+        "box-shadow:0 1px 2px rgba(0,0,0,.4)", "cursor:pointer", "transition:transform .15s",
+      ].join(";");
+      const regiao = regions.addRegion({
+        id: `comentario-${c.id}`,
+        start: c.timestampSegundos,
+        end: c.timestampSegundos,
+        drag: false,
+        resize: false,
+        color: `${tokens.colors.accent}55`,
+        content: ponto,
+      });
+      const el = regiao.element;
+      if (el) {
+        el.title = c.texto;
+        el.setAttribute("role", "button");
+        el.setAttribute("tabindex", "0");
+        el.setAttribute(
+          "aria-label",
+          `Comentário aos ${formatTempo(c.timestampSegundos)}: ${c.texto}`,
+        );
+        el.classList.add("rounded-full", "focus-visible:outline-2", "focus-visible:outline-accent");
+        el.addEventListener("keydown", (e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            player.seek(c.timestampSegundos);
+          }
+        });
+      }
+      regiao.on("over", () => { ponto.style.transform = "translateX(-50%) scale(1.25)"; });
+      regiao.on("leave", () => { ponto.style.transform = "translateX(-50%) scale(1)"; });
+      return regiao;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [comentarios]);
+
+  // Loop de trecho: acionado por "Repetir trecho" num comentário (ver
+  // ListaComentarios). Cria uma região ao redor do timestamp e a repete.
+  useEffect(() => {
+    const regions = regionsRef.current;
+    const ws = wsRef.current;
+    loopRegiaoRef.current?.remove();
+    loopRegiaoRef.current = null;
+    if (!regions || !ws || !player.loopComentarioId) return;
+    const alvo = comentariosRef.current.find((c) => c.id === player.loopComentarioId);
+    const duracao = ws.getDuration();
+    if (!alvo || duracao <= 0) return;
+    const inicio = Math.max(0, alvo.timestampSegundos - LOOP_ANTES_SEGUNDOS);
+    const fim = Math.min(duracao, alvo.timestampSegundos + LOOP_DEPOIS_SEGUNDOS);
+    const regiao = regions.addRegion({
+      start: inicio,
+      end: fim,
+      drag: false,
+      resize: false,
+      color: `${tokens.colors.accent}26`,
+    });
+    loopRegiaoRef.current = regiao;
+    regiao.play();
+    // Só recria a região (e reinicia a repetição) quando o alvo do loop ou a
+    // duração mudam — não a cada re-render da lista de comentários (lida via
+    // comentariosRef, por isso fica de fora do array de dependências).
+  }, [player.loopComentarioId, player.duracao]);
+
   function aplicarZoom(px: number) {
     const limitado = Math.min(ZOOM_MAX, Math.max(0, px));
     setZoomPx(limitado);
-    onZoomAtivoRef.current?.(limitado > 0);
     const ws = wsRef.current;
     if (ws && ws.getDuration() > 0) {
       try {
@@ -127,27 +201,6 @@ export function Waveform({
         // áudio ainda não decodificado — o zoom é reaplicado no próximo ajuste
       }
     }
-  }
-
-  function alternarLoop() {
-    const novo = !loopAtivo;
-    loopRef.current = novo;
-    setLoopAtivo(novo);
-    // Ao ligar, se já está tocando fora do trecho, entra no trecho.
-    const ws = wsRef.current;
-    const regiao = regiaoRef.current;
-    if (novo && ws && regiao && ws.isPlaying()) {
-      const t = ws.getCurrentTime();
-      if (t < regiao.start || t > regiao.end) regiao.play();
-    }
-  }
-
-  function limparTrecho() {
-    regionsRef.current?.clearRegions();
-    regiaoRef.current = null;
-    setTemRegiao(false);
-    setLoopAtivo(false);
-    loopRef.current = false;
   }
 
   // Seek por teclado: setas ±5s, Home/End (a onda é o mecanismo primário
@@ -244,37 +297,20 @@ export function Waveform({
           </button>
         </div>
 
-        <div className="flex items-center gap-1.5">
-          <button
-            onClick={alternarLoop}
-            disabled={!temRegiao}
-            aria-pressed={loopAtivo}
-            title={temRegiao
-              ? (loopAtivo ? "Desligar o loop do trecho" : "Repetir o trecho selecionado")
-              : "Arraste na onda para marcar um trecho"}
-            className={cn(
-              "inline-flex items-center gap-1.5 rounded-md px-2.5 py-2 text-xs font-medium transition-colors duration-200 disabled:opacity-40",
-              loopAtivo
-                ? "bg-accent/15 text-accent"
-                : "text-muted hover:bg-surface2 hover:text-fg",
-            )}
-          >
+        {player.loopComentarioId && (
+          <div className="inline-flex items-center gap-1.5 rounded-md bg-accent/15 px-2.5 py-2 text-xs font-medium text-accent">
             <Repeat className="h-4 w-4" aria-hidden />
-            Loop
-          </button>
-          {temRegiao ? (
+            Repetindo trecho do comentário
             <button
-              onClick={limparTrecho}
-              title="Limpar trecho"
-              className="inline-flex items-center gap-1 rounded-md px-2.5 py-2 text-xs text-muted transition-colors duration-200 hover:bg-surface2 hover:text-fg"
+              onClick={() => player.pararLoopComentario()}
+              aria-label="Parar o loop"
+              title="Parar o loop"
+              className="rounded-md p-0.5 transition-colors duration-200 hover:bg-accent/20"
             >
               <X className="h-3.5 w-3.5" aria-hidden />
-              Limpar trecho
             </button>
-          ) : (
-            <span className="text-xs text-muted">Arraste na onda para marcar um trecho</span>
-          )}
-        </div>
+          </div>
+        )}
       </div>
     </div>
   );

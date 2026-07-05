@@ -3,7 +3,6 @@ import { useState } from "react";
 import { AutoPlay } from "@/components/faixa/AutoPlay";
 import { Waveform } from "@/components/player/Waveform";
 import { usePlayer } from "@/components/player/PlayerContext";
-import { CommentPin } from "@/components/faixa/CommentPin";
 import { ListaComentarios } from "@/components/faixa/ListaComentarios";
 import { UploadVersao } from "@/components/faixa/UploadVersao";
 import { CapaUploader } from "@/components/capa/CapaUploader";
@@ -25,15 +24,12 @@ interface FaixaClientProps {
 
 export function FaixaClient({ faixa, versoes, comentariosPorVersao, isAdmin = false }: FaixaClientProps) {
   const ultimaVersao = versoes[versoes.length - 1];
-  const { versaoAtual, duracao, tempoAtual } = usePlayer();
+  const { versaoAtual, tempoAtual } = usePlayer();
   // Tempo (s) capturado pelo clique na onda ou pelo playhead — abre o form.
   // Guarda junto a versão a que pertence: trocar de versão descarta o form
   // (senão o comentário iria para a versão errada, com timestamp herdado).
   const [comentarioPendente, setComentarioPendente] =
     useState<{ versaoId: string; ts: number } | null>(null);
-  // Com zoom, a onda rola horizontalmente e os pinos (posição em %) desalinham
-  // — escondemos até voltar ao ajuste automático.
-  const [zoomAtivo, setZoomAtivo] = useState(false);
   const versaoExibida = versaoAtual?.faixaId === faixa.id ? versaoAtual : ultimaVersao;
   const comentarios = versaoExibida ? (comentariosPorVersao[versaoExibida.id] ?? []) : [];
   const tsComentario =
@@ -88,16 +84,13 @@ export function FaixaClient({ faixa, versoes, comentariosPorVersao, isAdmin = fa
 
       <div className="relative mb-2">
         <div className="relative pt-3">
-          {!zoomAtivo && comentarios.map((c) => (
-            <CommentPin key={c.id} comentario={c} duracao={duracao || versaoExibida.duracaoSegundos} />
-          ))}
           <Waveform
             versaoId={versaoExibida.id}
             arquivoUrl={versaoExibida.arquivoUrl}
+            comentarios={comentarios}
             height={112}
             onInteraction={(segundos) =>
               setComentarioPendente({ versaoId: versaoExibida.id, ts: segundos })}
-            onZoomAtivo={setZoomAtivo}
           />
         </div>
       </div>

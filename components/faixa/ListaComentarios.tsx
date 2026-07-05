@@ -4,7 +4,7 @@
 // para admin (isAdmin vem do servidor, via JWT — ver faixa/[id]/page.tsx).
 import { useActionState, useState } from "react";
 import { usePathname } from "next/navigation";
-import { Check, MessageSquare, Pencil, Trash2, X } from "lucide-react";
+import { Check, MessageSquare, Pencil, Repeat, Trash2, X } from "lucide-react";
 import { usePlayer } from "@/components/player/PlayerContext";
 import { formatTempo } from "@/components/player/format";
 import { Badge } from "@/components/ui/Badge";
@@ -51,9 +51,10 @@ export function ListaComentarios({
 }
 
 function ItemComentario({ comentario: c, isAdmin }: { comentario: Comentario; isAdmin: boolean }) {
-  const { seek } = usePlayer();
+  const { seek, loopComentarioId, alternarLoopComentario } = usePlayer();
   const caminho = usePathname();
   const [editando, setEditando] = useState(false);
+  const loopAtivo = loopComentarioId === c.id;
 
   // Envolve a Server Action para fechar o form de edição no sucesso.
   const [estadoEdicao, editarAction, editandoPendente] = useActionState(
@@ -89,6 +90,20 @@ function ItemComentario({ comentario: c, isAdmin }: { comentario: Comentario; is
         {c.resolvido && <Badge tone="aprovado">resolvido</Badge>}
 
         <span className="ml-auto flex items-center gap-1">
+          <button
+            onClick={() => alternarLoopComentario(c.id)}
+            aria-pressed={loopAtivo}
+            aria-label={loopAtivo ? "Parar o loop deste trecho" : "Repetir este trecho em loop"}
+            title={loopAtivo ? "Parar o loop deste trecho" : "Repetir trecho"}
+            className={cn(
+              "rounded-md p-2 transition-colors duration-200",
+              loopAtivo
+                ? "bg-accent/15 text-accent hover:bg-accent/20"
+                : "text-muted hover:bg-surface2 hover:text-fg",
+            )}
+          >
+            <Repeat className="h-3.5 w-3.5" aria-hidden />
+          </button>
           <button
             onClick={() => setEditando((v) => !v)}
             aria-label={editando ? "Cancelar edição" : "Editar comentário"}
