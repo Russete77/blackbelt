@@ -124,6 +124,16 @@ export function formatarStreams(valor: number): string {
   return valor.toLocaleString("pt-BR");
 }
 
+// Discriminador usado pelos componentes de gráfico (client): Server
+// Components não podem passar funções como prop para Client Components
+// (não são serializáveis pelo RSC), então as páginas passam "streams" |
+// "receita" e o formatador de fato é escolhido aqui, do lado do client.
+export type FormatoValor = "streams" | "receita";
+
+export function formatarValorPorTipo(formato: FormatoValor, valor: number): string {
+  return formato === "streams" ? formatarStreams(valor) : formatarReceita(valor);
+}
+
 // ------------------------------------------------------------------
 // Paleta categórica dos gráficos (dark-only — o app não tem modo claro).
 //

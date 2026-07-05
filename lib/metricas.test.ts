@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   totaisMetricas, porPlataforma, porArtista, porFaixa, porMes, porArtistaEPlataforma,
-  receitaPor1kStreams, formatarReceita, formatarStreams, corCategoria,
+  receitaPor1kStreams, formatarReceita, formatarStreams, formatarValorPorTipo, corCategoria,
 } from "./metricas";
 import type { MetricaDetalhada } from "@/types/analytics";
 
@@ -108,6 +108,15 @@ describe("receitaPor1kStreams", () => {
   });
   it("retorna null quando streams é 0 ou ausente", () => {
     expect(receitaPor1kStreams(100, 0)).toBeNull();
+  });
+});
+
+describe("formatarValorPorTipo", () => {
+  it('formato "streams" delega para formatarStreams', () => {
+    expect(formatarValorPorTipo("streams", 123456)).toBe(formatarStreams(123456));
+  });
+  it('formato "receita" delega para formatarReceita', () => {
+    expect(formatarValorPorTipo("receita", 1234.5)).toBe(formatarReceita(1234.5));
   });
 });
 

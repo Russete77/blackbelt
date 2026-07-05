@@ -83,7 +83,7 @@ export default async function AnalyticsPage({
                 <GraficoBarras
                   dados={linhasArtistaPlataforma}
                   series={seriesPlataforma}
-                  formatarValor={formatarStreams}
+                  formato="streams"
                   empilhado
                 />
               )}
@@ -93,7 +93,7 @@ export default async function AnalyticsPage({
               {linhasMes.length === 0 ? (
                 <p className="py-8 text-center text-xs text-muted">Sem dados para os filtros atuais.</p>
               ) : (
-                <GraficoLinha dados={linhasMes} formatarValor={formatarReceita} />
+                <GraficoLinha dados={linhasMes} formato="receita" />
               )}
             </div>
           </div>

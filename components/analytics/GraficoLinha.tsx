@@ -6,6 +6,9 @@ import {
   Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
 import { tokens } from "@/lib/tokens";
+import { formatarValorPorTipo, type FormatoValor } from "@/lib/metricas";
+
+export type { FormatoValor };
 
 function TooltipPersonalizado({
   active, payload, label, formatarValor,
@@ -25,13 +28,14 @@ function TooltipPersonalizado({
 }
 
 export function GraficoLinha({
-  dados, formatarValor, cor = tokens.colors.accent, altura = 260,
+  dados, formato = "receita", cor = tokens.colors.accent, altura = 260,
 }: {
   dados: { rotulo: string; valor: number }[];
-  formatarValor: (n: number) => string;
+  formato?: FormatoValor;
   cor?: string;
   altura?: number;
 }) {
+  const formatarValor = (v: number) => formatarValorPorTipo(formato, v);
   return (
     <div style={{ width: "100%", height: altura }}>
       <ResponsiveContainer>

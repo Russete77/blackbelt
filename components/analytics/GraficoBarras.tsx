@@ -7,6 +7,9 @@ import {
   Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
 import { tokens } from "@/lib/tokens";
+import { formatarValorPorTipo, type FormatoValor } from "@/lib/metricas";
+
+export type { FormatoValor };
 
 export interface SerieBarra {
   chave: string;
@@ -47,15 +50,16 @@ function TooltipPersonalizado({
 }
 
 export function GraficoBarras({
-  dados, categoriaChave = "rotulo", series, formatarValor, empilhado = false, altura = 260,
+  dados, categoriaChave = "rotulo", series, formato, empilhado = false, altura = 260,
 }: {
   dados: Record<string, string | number>[];
   categoriaChave?: string;
   series: SerieBarra[];
-  formatarValor: (n: number) => string;
+  formato: FormatoValor;
   empilhado?: boolean;
   altura?: number;
 }) {
+  const formatarValor = (v: number) => formatarValorPorTipo(formato, v);
   return (
     <div style={{ width: "100%", height: altura }}>
       <ResponsiveContainer>

@@ -53,7 +53,7 @@ export default async function NumerosPage({
 
           <div className="rounded-lg border border-line bg-surface p-4 md:p-5">
             <h3 className="mb-3 text-sm font-semibold">Streams por plataforma</h3>
-            <GraficoBarras dados={linhasPlataforma} series={serieUnica} formatarValor={formatarStreams} altura={220} />
+            <GraficoBarras dados={linhasPlataforma} series={serieUnica} formato="streams" altura={220} />
           </div>
 
           <div>
