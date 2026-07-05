@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { getFaixa, getVersoesDaFaixa, getComentariosDaVersao } from "@/lib/db";
+import { getFaixa, getVersoesDaFaixa, getComentariosDaVersao, getSignedCoverUrl } from "@/lib/db";
 import { FaixaClient } from "@/components/faixa/FaixaClient";
 import type { Comentario } from "@/types/domain";
 
@@ -7,6 +7,11 @@ export default async function FaixaPage({ params }: { params: Promise<{ id: stri
   const { id } = await params;
   const faixa = await getFaixa(id);
   if (!faixa) return notFound();
+
+  // Resolve o caminho da capa (bucket privado) para uma signed URL exibível.
+  if (faixa.capaUrl) {
+    faixa.capaUrl = (await getSignedCoverUrl(faixa.capaUrl)) ?? undefined;
+  }
 
   const versoes = await getVersoesDaFaixa(faixa.id);
   const listas = await Promise.all(versoes.map((v) => getComentariosDaVersao(v.id)));

@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { ProjetoCard } from "@/components/estudio/ProjetoCard";
 import { NovoProjetoForm } from "@/components/artista/NovoProjetoForm";
-import { getArtista, getProjetosDoArtista, getFaixasDoProjeto } from "@/lib/db";
+import { getArtista, getProjetosDoArtista, getFaixasDoProjeto, getSignedCoverUrl } from "@/lib/db";
 
 export default async function ArtistaProjetosPage({
   params,
@@ -14,7 +14,12 @@ export default async function ArtistaProjetosPage({
 
   const projetos = await getProjetosDoArtista(artista.id);
   const projetosComFaixas = await Promise.all(
-    projetos.map(async (projeto) => ({ projeto, faixas: await getFaixasDoProjeto(projeto.id) })),
+    projetos.map(async (projeto) => ({
+      projeto: projeto.capaUrl
+        ? { ...projeto, capaUrl: (await getSignedCoverUrl(projeto.capaUrl)) ?? undefined }
+        : projeto,
+      faixas: await getFaixasDoProjeto(projeto.id),
+    })),
   );
 
   return (

@@ -22,7 +22,7 @@ export function NovaFaixaForm({ projetoId }: { projetoId: string }) {
     return (
       <button
         onClick={() => setAberto(true)}
-        className="mt-3 inline-flex items-center gap-1 text-xs text-muted hover:text-accent transition"
+        className="inline-flex items-center gap-1 text-xs text-muted hover:text-accent transition"
       >
         <Plus className="h-3.5 w-3.5" aria-hidden />
         Nova faixa
@@ -31,7 +31,7 @@ export function NovaFaixaForm({ projetoId }: { projetoId: string }) {
   }
 
   return (
-    <form action={formAction} className="mt-3 rounded-md border border-line bg-surface2 p-3">
+    <form action={formAction} className="w-full rounded-md border border-line bg-surface2 p-3">
       <div className="mb-2 flex items-center justify-between">
         <span className="text-xs font-semibold">Nova faixa</span>
         <button

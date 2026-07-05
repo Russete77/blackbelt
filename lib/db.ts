@@ -273,6 +273,24 @@ export async function getSignedAudioUrl(arquivoPath: string, expiresIn = 3600): 
   return data.signedUrl;
 }
 
+// ------------------------------------------------------------------
+// Capas (Storage, bucket privado `covers`)
+// ------------------------------------------------------------------
+
+// Resolve o caminho salvo em capa_url/foto_url para uma URL exibível.
+// URLs http(s) completas (dados legados/seed) passam direto; caminhos do
+// bucket `covers` viram signed URL.
+export async function getSignedCoverUrl(capaPath: string, expiresIn = 3600): Promise<string | null> {
+  if (/^https?:\/\//i.test(capaPath)) return capaPath;
+  const supabase = await createClient();
+  const { data, error } = await supabase.storage.from("covers").createSignedUrl(capaPath, expiresIn);
+  if (error) {
+    console.error("getSignedCoverUrl:", error.message);
+    return null;
+  }
+  return data.signedUrl;
+}
+
 export async function getVersoesDaFaixa(faixaId: string): Promise<VersaoFaixa[]> {
   const supabase = await createClient();
   const { data, error } = await supabase
