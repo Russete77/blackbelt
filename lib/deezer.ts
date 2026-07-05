@@ -5,6 +5,7 @@
 // ser chamada a partir do servidor (Server Action), nunca direto do browser.
 // Mesma postura do lib/youtube.ts: nunca lança pra cima do chamador — falha
 // vira log + retorno vazio, pra Server Action mostrar mensagem amigável.
+import { extrairDeezerTrackId } from "@/lib/plataformas";
 
 export interface CandidatoArtistaDeezer {
   id: string;
@@ -131,4 +132,22 @@ export async function catalogoDeezer(deezerArtistId: string): Promise<FaixaCatal
   }
 
   return Array.from(encontradas.values());
+}
+
+// ------------------------------------------------------------------
+// Link curto do Deezer (deezer.page.link/...) — usado quando o usuário cola
+// esse formato ao vincular a plataforma numa faixa footprint (ver
+// app/(app)/actions.ts#vincularPlataforma). extrairDeezerTrackId não resolve
+// esse caso sozinho (não há id na URL curta, só depois do redirecionamento),
+// então seguimos o redirect por uma chamada de rede best-effort — falha vira
+// null (mensagem amigável na Server Action), nunca lança.
+export async function resolverDeezerLinkCurto(url: string): Promise<string | null> {
+  try {
+    const resposta = await fetch(url, { redirect: "follow" });
+    const final = resposta.url || url;
+    return extrairDeezerTrackId(final);
+  } catch (err) {
+    console.error("[deezer] falha ao resolver link curto:", err);
+    return null;
+  }
 }

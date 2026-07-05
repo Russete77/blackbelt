@@ -6,6 +6,8 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { caminhoSeguro } from "@/lib/forms";
 import { extrairYoutubeVideoId } from "@/lib/youtube";
+import { extrairSpotifyTrackId, extrairDeezerTrackId } from "@/lib/plataformas";
+import { resolverDeezerLinkCurto } from "@/lib/deezer";
 
 export interface EstadoAcao {
   status: "idle" | "ok" | "error";
@@ -218,6 +220,56 @@ export async function vincularYoutube(_estado: EstadoAcao, formData: FormData): 
     status: "ok",
     message: videoId ? "Vídeo do YouTube vinculado." : "Link do YouTube removido.",
   };
+}
+
+const NOMES_PLATAFORMA_VINCULAVEL: Record<"spotify" | "deezer", string> = {
+  spotify: "Spotify",
+  deezer: "Deezer",
+};
+
+// Vincula o link de Spotify/Deezer de uma faixa footprint (ver
+// components/faixa/PlayersTabs.tsx): parseia o id da faixa a partir da URL
+// colada e grava em spotify_track_id/deezer_track_id — a partir daí o player
+// embutido passa a aparecer no lugar do form "colar link".
+export async function vincularPlataforma(_estado: EstadoAcao, formData: FormData): Promise<EstadoAcao> {
+  const faixaId = String(formData.get("faixaId") ?? "").trim();
+  const plataformaBruta = String(formData.get("plataforma") ?? "").trim();
+  const bruto = String(formData.get("url") ?? "").trim();
+  const caminho = caminhoSeguro(formData.get("caminho"));
+
+  if (!faixaId) return { status: "error", message: "Faixa inválida." };
+  if (plataformaBruta !== "spotify" && plataformaBruta !== "deezer") {
+    return { status: "error", message: "Plataforma inválida." };
+  }
+  const plataforma = plataformaBruta;
+  const rotulo = NOMES_PLATAFORMA_VINCULAVEL[plataforma];
+  if (!bruto) return { status: "error", message: `Cole o link do ${rotulo} antes de salvar.` };
+
+  let trackId = plataforma === "spotify" ? extrairSpotifyTrackId(bruto) : extrairDeezerTrackId(bruto);
+  if (!trackId && plataforma === "deezer" && /deezer\.page\.link/i.test(bruto)) {
+    trackId = await resolverDeezerLinkCurto(bruto);
+  }
+  if (!trackId) {
+    return {
+      status: "error",
+      message: `Não reconheci esse link do ${rotulo}. Cole o link da faixa (ex.: ${
+        plataforma === "spotify" ? "open.spotify.com/track/..." : "deezer.com/track/..."
+      }).`,
+    };
+  }
+
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { status: "error", message: "Sessão expirada. Entre novamente." };
+
+  const coluna = plataforma === "spotify" ? "spotify_track_id" : "deezer_track_id";
+  const { error } = await supabase.from("faixas").update({ [coluna]: trackId }).eq("id", faixaId);
+  if (error) {
+    return { status: "error", message: `Não foi possível salvar o link do ${rotulo}. Tente novamente.` };
+  }
+
+  revalidatePath(caminho);
+  return { status: "ok", message: `${rotulo} vinculado.` };
 }
 
 export async function editarComentario(_estado: EstadoAcao, formData: FormData): Promise<EstadoAcao> {
