@@ -158,6 +158,45 @@ export function receitaPor1kStreams(receita: number, streams: number): number | 
 }
 
 // ------------------------------------------------------------------
+// Estimativa por RPM + recebimento por split (%)
+//
+// O YouTube entrega VIEWS, não R$ — faixas sincronizadas por lá aparecem
+// com receita real 0/nula mesmo tendo audiência real. Quando o usuário
+// informa um RPM (R$ por 1.000 views), essas faixas ganham uma receita
+// ESTIMADA (streams/1000 × rpm) só para dar uma noção de R$ — a receita
+// REAL importada (CSV/planilha) sempre tem prioridade e nunca é sobrescrita.
+// ------------------------------------------------------------------
+
+export interface ReceitaComEstimativa {
+  valor: number | null;
+  estimada: boolean;
+}
+
+// receita > 0 é tratada como "real" e vence a estimativa. receita null/0 com
+// streams > 0 e rpm > 0 vira estimativa (marcada `estimada: true` para a UI
+// exibir o selo "est."). Sem streams ou sem rpm, devolve a receita original
+// (null ou 0) sem estimar nada.
+export function receitaComEstimativa(
+  receita: number | null,
+  streams: number | null,
+  rpm: number | null,
+): ReceitaComEstimativa {
+  if (receita != null && receita > 0) return { valor: receita, estimada: false };
+  if (rpm != null && rpm > 0 && streams != null && streams > 0) {
+    return { valor: (streams / 1000) * rpm, estimada: true };
+  }
+  return { valor: receita, estimada: false };
+}
+
+// Recebimento do artista numa faixa = receita da faixa (real ou estimada) ×
+// seu percentual de split. null quando não há nenhuma receita/estimativa
+// para basear o cálculo (faixa sem métrica nenhuma ainda).
+export function recebimentoArtista(receita: number | null, percentual: number): number | null {
+  if (receita == null) return null;
+  return receita * (percentual / 100);
+}
+
+// ------------------------------------------------------------------
 // Formatação (pt-BR)
 // ------------------------------------------------------------------
 

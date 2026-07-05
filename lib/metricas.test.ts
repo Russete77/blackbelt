@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   totaisMetricas, porPlataforma, porArtista, porFaixa, porMes, porArtistaEPlataforma,
   receitaPor1kStreams, formatarReceita, formatarStreams, formatarValorPorTipo, corCategoria,
+  receitaComEstimativa, recebimentoArtista,
 } from "./metricas";
 import type { MetricaDetalhada } from "@/types/analytics";
 
@@ -169,6 +170,41 @@ describe("formatarReceita / formatarStreams", () => {
   });
   it("formata streams com separador de milhar pt-BR", () => {
     expect(formatarStreams(123456)).toBe("123.456");
+  });
+});
+
+describe("receitaComEstimativa", () => {
+  it("receita real (> 0) sempre vence a estimativa", () => {
+    expect(receitaComEstimativa(50, 10000, 5)).toEqual({ valor: 50, estimada: false });
+  });
+  it("sem receita real mas com streams e rpm: estima streams/1000 × rpm", () => {
+    expect(receitaComEstimativa(0, 10000, 2)).toEqual({ valor: 20, estimada: true });
+    expect(receitaComEstimativa(null, 484_000_000, 1.5)).toEqual({ valor: 726_000, estimada: true });
+  });
+  it("sem rpm informado: devolve a receita original (não estima)", () => {
+    expect(receitaComEstimativa(0, 10000, null)).toEqual({ valor: 0, estimada: false });
+  });
+  it("sem streams: não estima mesmo com rpm", () => {
+    expect(receitaComEstimativa(null, null, 2)).toEqual({ valor: null, estimada: false });
+    expect(receitaComEstimativa(null, 0, 2)).toEqual({ valor: null, estimada: false });
+  });
+  it("rpm <= 0 é tratado como ausente", () => {
+    expect(receitaComEstimativa(0, 10000, 0)).toEqual({ valor: 0, estimada: false });
+  });
+});
+
+describe("recebimentoArtista", () => {
+  it("aplica o percentual sobre a receita da faixa", () => {
+    expect(recebimentoArtista(1000, 25)).toBe(250);
+  });
+  it("100% recebe a receita inteira", () => {
+    expect(recebimentoArtista(500, 100)).toBe(500);
+  });
+  it("receita null (nenhuma métrica ainda) dá null, não 0", () => {
+    expect(recebimentoArtista(null, 50)).toBeNull();
+  });
+  it("0% recebe 0 mesmo com receita real", () => {
+    expect(recebimentoArtista(1000, 0)).toBe(0);
   });
 });
 
