@@ -11,37 +11,10 @@ import { Field } from "@/components/ui/Field";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { labelTipoVersao } from "@/lib/labels";
+import { lerDuracao, validarArquivoAudio } from "@/lib/audio";
 import type { TipoVersao } from "@/types/domain";
 
 const TIPOS: TipoVersao[] = ["beat", "vocal", "mix", "master"];
-
-// accept="audio/*" é só dica de UI — validamos de verdade antes de subir.
-const EXTENSOES_AUDIO = ["mp3", "wav", "flac", "m4a", "aac", "ogg", "opus"];
-const TAMANHO_MAX_MB = 200; // WAV de mix passa fácil de 100 MB
-
-// Lê a duração do arquivo no próprio browser via <audio> (metadata).
-// Se o formato não for decodificável (ou nenhum evento disparar), segue
-// com null após o timeout — o botão não pode ficar preso em "Enviando...".
-function lerDuracao(file: File): Promise<number | null> {
-  return new Promise((resolve) => {
-    const url = URL.createObjectURL(file);
-    const audio = new Audio();
-    let resolvido = false;
-    const finalizar = (valor: number | null) => {
-      if (resolvido) return;
-      resolvido = true;
-      clearTimeout(timeout);
-      URL.revokeObjectURL(url);
-      resolve(valor);
-    };
-    const timeout = setTimeout(() => finalizar(null), 10_000);
-    audio.preload = "metadata";
-    audio.onloadedmetadata = () =>
-      finalizar(Number.isFinite(audio.duration) ? Math.round(audio.duration * 100) / 100 : null);
-    audio.onerror = () => finalizar(null);
-    audio.src = url;
-  });
-}
 
 export function UploadVersao({ faixaId }: { faixaId: string }) {
   const router = useRouter();
@@ -59,13 +32,9 @@ export function UploadVersao({ faixaId }: { faixaId: string }) {
       setErro("Escolha um arquivo de áudio.");
       return;
     }
-    const ext = (file.name.split(".").pop() || "").toLowerCase();
-    if (!EXTENSOES_AUDIO.includes(ext)) {
-      setErro(`Formato não suportado (.${ext || "?"}). Use: ${EXTENSOES_AUDIO.join(", ")}.`);
-      return;
-    }
-    if (file.size > TAMANHO_MAX_MB * 1024 * 1024) {
-      setErro(`Arquivo de ${Math.round(file.size / 1024 / 1024)} MB — o limite é ${TAMANHO_MAX_MB} MB.`);
+    const validacao = validarArquivoAudio(file);
+    if ("erro" in validacao) {
+      setErro(validacao.erro);
       return;
     }
     setEnviando(true);
@@ -76,7 +45,7 @@ export function UploadVersao({ faixaId }: { faixaId: string }) {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Sessão expirada. Entre novamente.");
 
-      const path = `${faixaId}/${crypto.randomUUID()}.${ext}`;
+      const path = `${faixaId}/${crypto.randomUUID()}.${validacao.ext}`;
 
       const { error: uploadError } = await supabase.storage
         .from("audio")
