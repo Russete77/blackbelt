@@ -8,7 +8,7 @@
 // então as classes animate-* abaixo não precisam do prefixo motion-safe:.
 // Em telas pequenas o painel vira bottom-sheet (sheet-up); em md+ é um
 // dialog centralizado (fade-in-up).
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useRef } from "react";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { cn } from "@/lib/cn";
@@ -25,15 +25,9 @@ export function Modal({
   children: React.ReactNode;
   className?: string;
 }) {
-  // Evita createPortal(document.body) antes da hidratação no cliente — o
-  // modal parte sempre fechado no SSR, então isto só importa em testes que
-  // montam já com open=true.
-  const [montado, setMontado] = useState(false);
   const painelRef = useRef<HTMLDivElement>(null);
   const focoAnteriorRef = useRef<HTMLElement | null>(null);
   const tituloId = useId();
-
-  useEffect(() => setMontado(true), []);
 
   useEffect(() => {
     if (!open) return;
@@ -73,7 +67,11 @@ export function Modal({
     };
   }, [open, onClose]);
 
-  if (!open || !montado) return null;
+  // `open` só vira true a partir de um clique no cliente (todo consumidor
+  // parte de useState(false)) — nunca durante o SSR, então não há
+  // necessidade de um estado extra de "montado" só pra guardar o acesso a
+  // `document` abaixo. O guard de tipo é só defensivo.
+  if (!open || typeof document === "undefined") return null;
 
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-end justify-center md:items-center md:p-4">

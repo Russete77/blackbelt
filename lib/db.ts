@@ -16,6 +16,7 @@ import type { Notificacao } from "@/types/notificacoes";
 import type { Demanda } from "@/types/demandas";
 import type { Lancamento } from "@/types/lancamentos";
 import type { Clipe } from "@/types/clipes";
+import type { Documento } from "@/types/documentos";
 import { normalizarStatusShow, parseRiderCamarim, parseRiderTecnico,
   riderCamarimTemConteudo, riderTecnicoTemConteudo } from "@/lib/shows";
 import {
@@ -1191,4 +1192,39 @@ export async function getClipesDoArtista(artistaId: string): Promise<Clipe[]> {
     .order("created_at", { ascending: false });
   if (error) throw error;
   return (data ?? []).map(mapClipe);
+}
+
+// ------------------------------------------------------------------
+// Documentos — contratos/splits/outros arquivos do artista (tabela própria
+// `documentos`). Sem bucket dedicado: `arquivo_path`, quando presente, é um
+// caminho no bucket privado `covers` (resolvido com getSignedCoverUrl, que
+// já lida com path OU url http(s) completa). RLS: time vê/mexe, só admin apaga.
+// ------------------------------------------------------------------
+
+interface DocumentoRow {
+  id: string; artista_id: string; titulo: string; tipo: Documento["tipo"];
+  arquivo_path: string | null; observacao: string | null; created_at: string;
+}
+
+function mapDocumento(row: DocumentoRow): Documento {
+  return {
+    id: row.id,
+    artistaId: row.artista_id,
+    titulo: row.titulo,
+    tipo: row.tipo,
+    arquivoPath: row.arquivo_path ?? undefined,
+    observacao: row.observacao ?? undefined,
+    criadoEm: row.created_at,
+  };
+}
+
+export async function getDocumentosDoArtista(artistaId: string): Promise<Documento[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("documentos")
+    .select("*")
+    .eq("artista_id", artistaId)
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  return (data ?? []).map(mapDocumento);
 }

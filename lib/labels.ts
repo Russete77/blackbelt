@@ -3,6 +3,7 @@ import type { EstagioPipeline, TipoProjeto, TipoVersao, Prioridade } from "@/typ
 import type { StatusDemanda } from "@/types/demandas";
 import type { StatusLancamento, TipoLancamento } from "@/types/lancamentos";
 import type { StatusClipe } from "@/types/clipes";
+import type { TipoDocumento } from "@/types/documentos";
 
 export const labelEstagio = (e: EstagioPipeline): string =>
   ({ ideia: "Ideia", gravacao: "Gravação", mixagem: "Mixagem",
@@ -67,3 +68,7 @@ export const toneStatusClipe = (s: StatusClipe): "neutral" | "media" | "accent" 
     ideia: "neutral", pre_producao: "media", gravacao: "media",
     pos_producao: "accent", lancado: "aprovado",
   }[s] as "neutral" | "media" | "accent" | "aprovado");
+
+// Rótulo do módulo Documentos (contratos/splits/outros, tabela `documentos`).
+export const labelTipoDocumento = (t: TipoDocumento): string =>
+  ({ contrato: "Contrato", split: "Split", outro: "Outro" }[t]);
