@@ -3,6 +3,7 @@ import {
   labelStatusShow, normalizarStatusShow, toneStatusShow,
   formatarDataShow, partesDataShow, chaveMesShow, labelMesShow,
   isoParaInputLocal, inputLocalParaIso, formatarCache,
+  particionarAgenda, agruparPorMes,
   parseRiderTecnico, parseRiderCamarim, riderTecnicoDeJson, riderCamarimDeJson,
   riderTecnicoVazio, riderTecnicoTemConteudo, riderCamarimTemConteudo,
 } from "./shows";
@@ -52,6 +53,32 @@ describe("cachê", () => {
   it("formata em BRL", () => {
     // Intl usa espaço não separável (NBSP) entre "R$" e o valor — \s cobre os dois.
     expect(formatarCache(15000)).toMatch(/^R\$\s15\.000,00$/);
+  });
+});
+
+describe("agenda", () => {
+  const mk = (id: string, data?: string) => ({
+    id, artistaId: "a1", data, status: "confirmado" as const,
+    riderTecnico: null, riderCamarim: null,
+  });
+  const agora = Date.parse("2026-07-05T12:00:00Z");
+  const shows = [
+    mk("passado", "2026-06-01T00:00:00Z"),
+    mk("hoje", "2026-07-05T23:00:00Z"),
+    mk("proximo-mes", "2026-08-10T00:00:00Z"),
+    mk("sem-data"),
+  ];
+
+  it("particiona em próximos / sem data / anteriores (recente primeiro)", () => {
+    const { proximos, semData, anteriores } = particionarAgenda(shows, agora);
+    expect(proximos.map((s) => s.id)).toEqual(["hoje", "proximo-mes"]);
+    expect(semData.map((s) => s.id)).toEqual(["sem-data"]);
+    expect(anteriores.map((s) => s.id)).toEqual(["passado"]);
+  });
+  it("agrupa por mês preservando a ordem cronológica", () => {
+    const meses = agruparPorMes(particionarAgenda(shows, agora).proximos);
+    expect(meses.map((m) => m.chave)).toEqual(["2026-07", "2026-08"]);
+    expect(meses[0].shows.map((s) => s.id)).toEqual(["hoje"]);
   });
 });
 

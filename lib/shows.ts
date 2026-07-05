@@ -5,7 +5,7 @@
 // Datas: o produto é pt-BR e a agenda vive em America/Sao_Paulo. O Brasil
 // não tem horário de verão desde 2019, então o offset fixo -03:00 é seguro
 // e evita depender do fuso do servidor (Vercel roda em UTC).
-import type { RiderCamarim, RiderInput, RiderTecnico, StatusShow } from "@/types/shows";
+import type { RiderCamarim, RiderInput, RiderTecnico, ShowDetalhado, StatusShow } from "@/types/shows";
 
 // ------------------------------------------------------------------
 // Status
@@ -107,6 +107,43 @@ export function inputLocalParaIso(local: string): string | null {
 // Cachê em BRL — exibido sempre em font-mono nas telas.
 export function formatarCache(valor: number): string {
   return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(valor);
+}
+
+// ------------------------------------------------------------------
+// Agenda — partição próximos / sem data / anteriores + grupos por mês
+// ------------------------------------------------------------------
+
+export interface AgendaParticionada {
+  proximos: ShowDetalhado[];   // ordem cronológica
+  semData: ShowDetalhado[];
+  anteriores: ShowDetalhado[]; // mais recente primeiro
+}
+
+// `shows` deve chegar ordenado por data ascendente (como em lib/db.ts).
+// `agora` é injetável para testes; o default roda fora do render de
+// componentes (regra react-hooks/purity).
+export function particionarAgenda(
+  shows: ShowDetalhado[],
+  agora: number = Date.now(),
+): AgendaParticionada {
+  return {
+    proximos: shows.filter((s) => s.data && Date.parse(s.data) >= agora),
+    semData: shows.filter((s) => !s.data),
+    anteriores: shows.filter((s) => s.data && Date.parse(s.data) < agora).reverse(),
+  };
+}
+
+// Agrupa shows (já em ordem cronológica) por mês local, preservando a ordem.
+export function agruparPorMes(shows: ShowDetalhado[]): { chave: string; shows: ShowDetalhado[] }[] {
+  const meses: { chave: string; shows: ShowDetalhado[] }[] = [];
+  for (const show of shows) {
+    if (!show.data) continue;
+    const chave = chaveMesShow(show.data);
+    const ultimo = meses[meses.length - 1];
+    if (ultimo && ultimo.chave === chave) ultimo.shows.push(show);
+    else meses.push({ chave, shows: [show] });
+  }
+  return meses;
 }
 
 // ------------------------------------------------------------------
