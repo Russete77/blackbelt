@@ -9,10 +9,12 @@ import { GraficoBarras, type SerieBarra } from "@/components/analytics/GraficoBa
 import { FiltroRpm } from "@/components/analytics/FiltroRpm";
 import { ImportarCSV } from "@/components/analytics/ImportarCSV";
 import { SincronizarYoutube } from "@/components/analytics/SincronizarYoutube";
+import { CotacaoDolar } from "@/components/analytics/CotacaoDolar";
 import {
-  totaisMetricas, porPlataforma, formatarReceita, formatarStreams, PALETA_CATEGORICA,
-  receitaComEstimativa, recebimentoArtista,
+  totaisMetricas, porPlataforma, formatarStreams, PALETA_CATEGORICA,
+  receitaComEstimativa, recebimentoArtista, converterReceitaParaBRL,
 } from "@/lib/metricas";
+import { cotacaoDolar, formatarValorDual } from "@/lib/cambio";
 import { youtubeConfigurado } from "@/lib/youtube";
 import type { LinhaFaixaSplit } from "@/types/analytics";
 
@@ -30,10 +32,14 @@ export default async function NumerosPage({
   const artista = await getArtista(slug);
   if (!artista) return notFound();
 
-  const [metricas, faixasComSplit] = await Promise.all([
+  const cotacao = await cotacaoDolar();
+  const [metricasBrutas, faixasComSplit] = await Promise.all([
     getMetricasDoArtista(artista.id),
-    getFaixasComSplitDoArtista(artista.id),
+    getFaixasComSplitDoArtista(artista.id, cotacao.brl),
   ]);
+  // Receita convertida pra BRL pela cotação do dia ANTES de agregar — ver
+  // mesmo racional em app/(app)/analytics/page.tsx e lib/metricas.ts.
+  const metricas = converterReceitaParaBRL(metricasBrutas, cotacao.brl);
   const totais = totaisMetricas(metricas);
   const linhasPlataforma = porPlataforma(metricas).map((l) => ({ rotulo: l.rotulo, streams: l.streams }));
 
@@ -64,7 +70,12 @@ export default async function NumerosPage({
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
-        <h2 className="text-lg font-semibold">Números</h2>
+        <div>
+          <h2 className="text-lg font-semibold">Números</h2>
+          <div className="mt-1">
+            <CotacaoDolar cotacao={cotacao} />
+          </div>
+        </div>
         <ImportarCSV artistas={[{ id: artista.id, nome: artista.nome }]} artistaFixoId={artista.id} />
       </div>
 
@@ -78,11 +89,11 @@ export default async function NumerosPage({
         <>
           <div className="grid gap-4 sm:grid-cols-3">
             <StatTile icon={Headphones} label="Streams" value={formatarStreams(totais.streams)} />
-            <StatTile icon={Wallet} label="Receita" value={formatarReceita(totais.receita)} />
+            <StatTile icon={Wallet} label="Receita" value={formatarValorDual(totais.receita, "BRL", cotacao.brl)} />
             <StatTile
               icon={HandCoins}
               label="Recebimento do artista"
-              value={formatarReceita(recebimentoTotal)}
+              value={formatarValorDual(recebimentoTotal, "BRL", cotacao.brl)}
               hint="Receita de cada faixa × % do artista (inclui feats)"
             />
           </div>
@@ -107,6 +118,7 @@ export default async function NumerosPage({
             </div>
             <TabelaFaixasSplit
               linhas={linhasFaixasSplit}
+              taxaBrl={cotacao.brl}
               tituloVazio={`Nenhuma faixa com split cadastrado ainda para ${artista.nome}.`}
             />
           </div>

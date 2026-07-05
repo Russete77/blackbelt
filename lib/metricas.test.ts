@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   totaisMetricas, porPlataforma, porArtista, porFaixa, porMes, porArtistaEPlataforma,
   receitaPor1kStreams, formatarReceita, formatarStreams, formatarValorPorTipo, corCategoria,
-  receitaComEstimativa, recebimentoArtista,
+  receitaComEstimativa, recebimentoArtista, converterReceitaParaBRL,
 } from "./metricas";
 import type { MetricaDetalhada } from "@/types/analytics";
 
@@ -17,6 +17,26 @@ function m(overrides: Partial<MetricaDetalhada>): MetricaDetalhada {
     ...overrides,
   };
 }
+
+describe("converterReceitaParaBRL", () => {
+  it("converte receita em USD pra BRL pela taxa e marca moeda BRL", () => {
+    const [linha] = converterReceitaParaBRL([m({ receita: 100, moeda: "USD" })], 5);
+    expect(linha.receita).toBe(500);
+    expect(linha.moeda).toBe("BRL");
+  });
+  it("receita já em BRL (ou sem moeda informada) não é alterada", () => {
+    const [semMoeda] = converterReceitaParaBRL([m({ receita: 10 })], 5);
+    expect(semMoeda.receita).toBe(10);
+    expect(semMoeda.moeda).toBe("BRL");
+
+    const [comBRL] = converterReceitaParaBRL([m({ receita: 10, moeda: "BRL" })], 5);
+    expect(comBRL.receita).toBe(10);
+  });
+  it("receita ausente em USD: continua ausente, não vira 0", () => {
+    const [linha] = converterReceitaParaBRL([m({ receita: undefined, moeda: "USD" })], 5);
+    expect(linha.receita).toBeUndefined();
+  });
+});
 
 describe("totaisMetricas", () => {
   it("soma streams e receita, tratando ausentes como 0", () => {

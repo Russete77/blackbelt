@@ -1,17 +1,21 @@
 import { Music2 } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { formatarReceita, formatarStreams } from "@/lib/metricas";
+import { formatarStreams } from "@/lib/metricas";
+import { formatarValorDual } from "@/lib/cambio";
 import type { LinhaFaixaAgregada } from "@/types/analytics";
 
 // Tabela "por faixa" do painel — TODA faixa do catálogo aparece (LEFT JOIN
 // com as métricas agregadas, ver lib/metricas.ts#porFaixa): streams/receita
 // mostram "—" quando a faixa ainda não tem nenhuma métrica importada ou
-// sincronizada, em vez de simplesmente sumir da lista.
+// sincronizada, em vez de simplesmente sumir da lista. Receita já chega em
+// BRL (normalizada pela cotação do dia, ver lib/metricas.ts#converterReceitaParaBRL);
+// `taxaBrl` é só para mostrar o equivalente em US$ ao lado.
 export function TabelaFaixas({
-  linhas, tituloVazio = "Nenhuma faixa cadastrada ainda.",
+  linhas, taxaBrl, tituloVazio = "Nenhuma faixa cadastrada ainda.",
 }: {
   linhas: LinhaFaixaAgregada[];
+  taxaBrl: number;
   tituloVazio?: string;
 }) {
   if (linhas.length === 0) {
@@ -47,13 +51,13 @@ export function TabelaFaixas({
                   {l.streams != null ? formatarStreams(l.streams) : "—"}
                 </td>
                 <td className="px-4 py-2.5 text-right font-mono text-xs text-fg">
-                  <span className="inline-flex items-center gap-1.5">
-                    {l.receita != null ? formatarReceita(l.receita) : "—"}
+                  <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
+                    {l.receita != null ? formatarValorDual(l.receita, "BRL", taxaBrl) : "—"}
                     {l.receitaEstimada && <Badge tone="accent">est.</Badge>}
                   </span>
                 </td>
                 <td className="px-4 py-2.5 text-right font-mono text-xs text-muted">
-                  {l.receitaPor1kStreams != null ? formatarReceita(l.receitaPor1kStreams) : "—"}
+                  {l.receitaPor1kStreams != null ? formatarValorDual(l.receitaPor1kStreams, "BRL", taxaBrl) : "—"}
                 </td>
               </tr>
             ))}

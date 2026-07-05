@@ -10,11 +10,14 @@ import { FiltroAnalytics } from "@/components/analytics/FiltroAnalytics";
 import { FiltroRpm } from "@/components/analytics/FiltroRpm";
 import { ImportarCSV } from "@/components/analytics/ImportarCSV";
 import { SincronizarYoutube } from "@/components/analytics/SincronizarYoutube";
+import { CotacaoDolar } from "@/components/analytics/CotacaoDolar";
 import { getArtistas, getMetricas, contarStatusYoutube, getFaixas, getFaixasDoArtista } from "@/lib/db";
 import {
   totaisMetricas, porFaixa, porMes, porArtistaEPlataforma,
-  formatarReceita, formatarStreams, corCategoria, receitaComEstimativa, receitaPor1kStreams,
+  formatarStreams, corCategoria, receitaComEstimativa, receitaPor1kStreams,
+  converterReceitaParaBRL,
 } from "@/lib/metricas";
+import { cotacaoDolar, formatarValorDual } from "@/lib/cambio";
 import { youtubeConfigurado } from "@/lib/youtube";
 
 export default async function AnalyticsPage({
@@ -26,10 +29,16 @@ export default async function AnalyticsPage({
   const rpmBruto = rpmParam ? Number(rpmParam.replace(",", ".")) : null;
   const rpm = rpmBruto != null && Number.isFinite(rpmBruto) && rpmBruto > 0 ? rpmBruto : null;
 
-  const [metricas, artistas, statusYoutube, faixasRelevantes] = await Promise.all([
+  const [metricasBrutas, artistas, statusYoutube, faixasRelevantes, cotacao] = await Promise.all([
     getMetricas(), getArtistas(), contarStatusYoutube(),
     artista ? getFaixasDoArtista(artista) : getFaixas(),
+    cotacaoDolar(),
   ]);
+
+  // Receita de toda linha convertida pra BRL pela cotação do dia ANTES de
+  // agregar — royalties em USD (YouTube AdSense, agregadoras) não podem ser
+  // somados cegamente com receita em BRL (ver lib/metricas.ts).
+  const metricas = converterReceitaParaBRL(metricasBrutas, cotacao.brl);
 
   const plataformasDistintas = Array.from(new Set(metricas.map((m) => m.plataforma))).sort();
 
@@ -76,6 +85,9 @@ export default async function AnalyticsPage({
           <p className="text-sm text-muted">
             Views × recebimento do selo — transparente, importado direto das planilhas das plataformas.
           </p>
+          <div className="mt-1.5">
+            <CotacaoDolar cotacao={cotacao} />
+          </div>
         </div>
         <ImportarCSV artistas={artistas} />
       </div>
@@ -101,7 +113,7 @@ export default async function AnalyticsPage({
         <div className="flex flex-col gap-6">
           <div className="grid gap-4 sm:grid-cols-3">
             <StatTile icon={Headphones} label="Streams" value={formatarStreams(totais.streams)} />
-            <StatTile icon={Wallet} label="Receita" value={formatarReceita(totais.receita)} />
+            <StatTile icon={Wallet} label="Receita" value={formatarValorDual(totais.receita, "BRL", cotacao.brl)} />
             <StatTile icon={Music2} label="Faixas monetizadas" value={String(faixasMonetizadas)} />
           </div>
 
@@ -131,7 +143,7 @@ export default async function AnalyticsPage({
 
           <div>
             <h2 className="mb-3 text-sm font-semibold">Por faixa</h2>
-            <TabelaFaixas linhas={linhasFaixas} />
+            <TabelaFaixas linhas={linhasFaixas} taxaBrl={cotacao.brl} />
           </div>
         </div>
       )}

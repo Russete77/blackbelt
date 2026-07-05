@@ -7,7 +7,7 @@ import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
 import type {
   Artista, Projeto, Faixa, VersaoFaixa, Comentario, Metrica,
-  TipoProjeto, EstagioPipeline, TipoVersao, CategoriaComentario, Prioridade, OrigemFaixa,
+  TipoProjeto, EstagioPipeline, TipoVersao, CategoriaComentario, Prioridade, OrigemFaixa, Moeda,
 } from "@/types/domain";
 import type { ShowDetalhado } from "@/types/shows";
 import type { MetricaDetalhada } from "@/types/analytics";
@@ -55,6 +55,7 @@ interface ShowRow {
 interface MetricaRow {
   id: string; artista_id: string; faixa_id: string | null; plataforma: string;
   data: string; streams: number | string | null; receita: number | string | null;
+  moeda?: Moeda | null;
 }
 // Join opcional `artistas(nome)`/`faixas(titulo)` — presente em getMetricas/getMetricasDoArtista.
 interface MetricaJoinRow extends MetricaRow {
@@ -166,6 +167,7 @@ function mapMetrica(row: MetricaRow): Metrica {
     data: row.data,
     streams: row.streams != null ? Number(row.streams) : undefined,
     receita: row.receita != null ? Number(row.receita) : undefined,
+    moeda: row.moeda ?? "BRL",
   };
 }
 
@@ -677,7 +679,13 @@ interface VinculoFaixaArtistaRow {
   faixas: { titulo: string } | null;
 }
 
-export async function getFaixasComSplitDoArtista(artistaId: string): Promise<FaixaComSplit[]> {
+// `taxaBrl` = cotação do dia (ver lib/cambio.ts#cotacaoDolar) — necessária
+// aqui porque a receita é somada DENTRO desta função (não passa pelo mesmo
+// `converterReceitaParaBRL` usado antes de porFaixa/totaisMetricas nas
+// páginas): sem converter USD -> BRL antes de somar, uma faixa com métricas
+// em moedas diferentes teria a receita somada "cegamente", misturando US$ e
+// R$ num único número sem sentido.
+export async function getFaixasComSplitDoArtista(artistaId: string, taxaBrl: number): Promise<FaixaComSplit[]> {
   const supabase = await createClient();
   const { data: vinculos, error } = await supabase
     .from("faixa_artistas")
@@ -690,20 +698,22 @@ export async function getFaixasComSplitDoArtista(artistaId: string): Promise<Fai
   const faixaIds = vinculos.map((v) => v.faixa_id);
   const { data: metricasRows, error: metError } = await supabase
     .from("metricas")
-    .select("faixa_id, streams, receita")
+    .select("faixa_id, streams, receita, moeda")
     .in("faixa_id", faixaIds)
-    .returns<{ faixa_id: string | null; streams: number | string | null; receita: number | string | null }[]>();
+    .returns<{ faixa_id: string | null; streams: number | string | null; receita: number | string | null; moeda?: Moeda | null }[]>();
   if (metError) throw metError;
 
   // Agrega streams/receita por faixa, somando TODAS as métricas da faixa
   // (independente de qual artista_id a métrica foi importada) — é o total
-  // da faixa, base do split.
+  // da faixa, base do split. Receita em USD é convertida pra BRL antes de somar.
   const agregadoPorFaixa = new Map<string, { streams: number; receita: number; temMetrica: boolean }>();
   for (const m of metricasRows ?? []) {
     if (!m.faixa_id) continue;
     const atual = agregadoPorFaixa.get(m.faixa_id) ?? { streams: 0, receita: 0, temMetrica: false };
+    const receitaBruta = m.receita != null ? Number(m.receita) : 0;
+    const receitaBRL = (m.moeda ?? "BRL") === "USD" ? receitaBruta * taxaBrl : receitaBruta;
     atual.streams += m.streams != null ? Number(m.streams) : 0;
-    atual.receita += m.receita != null ? Number(m.receita) : 0;
+    atual.receita += receitaBRL;
     atual.temMetrica = true;
     agregadoPorFaixa.set(m.faixa_id, atual);
   }

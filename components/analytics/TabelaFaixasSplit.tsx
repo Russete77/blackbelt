@@ -1,17 +1,21 @@
 import { Music2 } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { formatarReceita, formatarStreams } from "@/lib/metricas";
+import { formatarStreams } from "@/lib/metricas";
+import { formatarValorDual } from "@/lib/cambio";
 import type { LinhaFaixaSplit } from "@/types/analytics";
 
 // Tabela "por faixa" da página Números do artista — cada linha é uma faixa
 // onde o artista aparece em faixa_artistas (inclui feats de outros donos).
 // "Receita da faixa" é o total da faixa inteira; "Recebimento" já aplica o
-// percentual do artista — é o número que interessa de verdade pra ele.
+// percentual do artista — é o número que interessa de verdade pra ele. Ambos
+// já chegam em BRL normalizado (ver lib/metricas.ts#converterReceitaParaBRL);
+// `taxaBrl` só serve pra mostrar o equivalente em US$ ao lado.
 export function TabelaFaixasSplit({
-  linhas, tituloVazio = "Nenhuma faixa com split cadastrado ainda para este artista.",
+  linhas, taxaBrl, tituloVazio = "Nenhuma faixa com split cadastrado ainda para este artista.",
 }: {
   linhas: LinhaFaixaSplit[];
+  taxaBrl: number;
   tituloVazio?: string;
 }) {
   if (linhas.length === 0) {
@@ -49,8 +53,8 @@ export function TabelaFaixasSplit({
                   {l.streams != null ? formatarStreams(l.streams) : "—"}
                 </td>
                 <td className="px-4 py-2.5 text-right font-mono text-xs text-fg">
-                  <span className="inline-flex items-center gap-1.5">
-                    {l.receita != null ? formatarReceita(l.receita) : "—"}
+                  <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
+                    {l.receita != null ? formatarValorDual(l.receita, "BRL", taxaBrl) : "—"}
                     {l.receitaEstimada && <Badge tone="accent">est.</Badge>}
                   </span>
                 </td>
@@ -58,7 +62,7 @@ export function TabelaFaixasSplit({
                   {l.percentual}%
                 </td>
                 <td className="px-4 py-2.5 text-right font-mono text-xs font-semibold text-accent">
-                  {l.recebimento != null ? formatarReceita(l.recebimento) : "—"}
+                  {l.recebimento != null ? formatarValorDual(l.recebimento, "BRL", taxaBrl) : "—"}
                 </td>
               </tr>
             ))}

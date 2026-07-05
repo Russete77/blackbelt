@@ -34,6 +34,7 @@ interface LinhaPronta {
   data: string;
   streams: number | null;
   receita: number | null;
+  moeda: "BRL" | "USD";
 }
 
 // Resolve nome (artista ou faixa) contra uma lista candidata, ignorando
@@ -50,6 +51,8 @@ export async function importarMetricasCSV(
   const csvTexto = String(formData.get("csv") ?? "");
   const caminho = caminhoSeguro(formData.get("caminho"));
   const artistaPadraoId = String(formData.get("artistaPadraoId") ?? "").trim() || null;
+  const moedaBruta = String(formData.get("moeda") ?? "BRL").trim().toUpperCase();
+  const moeda: "BRL" | "USD" = moedaBruta === "USD" ? "USD" : "BRL";
 
   let mapeamento: Partial<Record<CampoCSV, number>>;
   try {
@@ -142,7 +145,7 @@ export async function importarMetricasCSV(
       }
     }
 
-    prontas.push({ artista_id: artistaId, faixa_id: faixaId, plataforma, data, streams, receita });
+    prontas.push({ artista_id: artistaId, faixa_id: faixaId, plataforma, data, streams, receita, moeda });
   }
 
   if (prontas.length === 0) {

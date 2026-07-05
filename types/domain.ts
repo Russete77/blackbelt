@@ -7,6 +7,10 @@ export type TipoVersao = "beat" | "vocal" | "mix" | "master";
 export type CategoriaComentario = "beat" | "mix" | "master" | "letra" | "geral";
 export type Prioridade = "alta" | "media" | "baixa";
 export type RotuloEstrutura = "intro" | "verso" | "refrao" | "ponte" | "outro";
+// Moeda em que uma linha de `metricas.receita` foi lançada — royalties
+// internacionais (YouTube AdSense, agregadoras) chegam em USD; o resto,
+// tipicamente em BRL. Ver lib/cambio.ts para a conversão/exibição dual.
+export type Moeda = "BRL" | "USD";
 
 export interface Usuario {
   id: string; nome: string; papel: Papel; artistaVinculado?: string; avatarUrl?: string;
@@ -61,4 +65,7 @@ export interface Show {
 export interface Metrica {
   id: string; artistaId: string; faixaId?: string; plataforma: string;
   data: string; streams?: number; receita?: number;
+  // Moeda de `receita` nesta linha — ausente/undefined equivale a 'BRL'
+  // (default da coluna e comportamento de antes dela existir).
+  moeda?: Moeda;
 }

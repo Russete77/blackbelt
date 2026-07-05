@@ -4,6 +4,24 @@
 import type { MetricaDetalhada, TotaisMetricas, LinhaAgregada, LinhaFaixaAgregada } from "@/types/analytics";
 
 // ------------------------------------------------------------------
+// Câmbio USD/BRL — normalização ANTES de agregar
+//
+// `metricas.moeda` diz em que moeda aquela LINHA foi lançada; as agregações
+// abaixo (totaisMetricas/porFaixa/porMes/...) somam `receita` cegamente, e
+// somar USD com BRL sem converter primeiro daria um número sem sentido. Em
+// vez de espalhar a conversão por cada função de agregação, convertemos a
+// receita de toda linha em USD para BRL (pela cotação do dia) ANTES de
+// agregar — a partir daí, todo `receita` no pipeline já é BRL, e a exibição
+// dual (ver lib/cambio.ts#formatarValorDual) trata esse total como um valor
+// em BRL para mostrar o equivalente em US$ ao lado.
+export function converterReceitaParaBRL(metricas: MetricaDetalhada[], taxaUsdBrl: number): MetricaDetalhada[] {
+  return metricas.map((m) => {
+    if ((m.moeda ?? "BRL") !== "USD" || m.receita == null) return { ...m, moeda: "BRL" as const };
+    return { ...m, receita: m.receita * taxaUsdBrl, moeda: "BRL" as const };
+  });
+}
+
+// ------------------------------------------------------------------
 // Totais e agregações
 // ------------------------------------------------------------------
 

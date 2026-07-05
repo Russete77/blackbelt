@@ -38,6 +38,10 @@ export function ImportarCSV({
   const [analisado, setAnalisado] = useState<{ headers: string[]; linhas: string[][] } | null>(null);
   const [mapeamento, setMapeamento] = useState<Partial<Record<CampoCSV, number>>>({});
   const [artistaPadraoId, setArtistaPadraoId] = useState(artistaFixoId ?? "");
+  // Moeda da coluna de receita da planilha inteira (não é por linha) —
+  // distribuidoras internacionais (YouTube AdSense, agregadoras) costumam
+  // reportar em dólar; o resto normalmente já vem em real.
+  const [moeda, setMoeda] = useState<"BRL" | "USD">("BRL");
   const inputArquivoRef = useRef<HTMLInputElement>(null);
 
   const [estado, formAction, pendente] = useActionState(
@@ -51,6 +55,7 @@ export function ImportarCSV({
     setAnalisado(null);
     setMapeamento({});
     setArtistaPadraoId(artistaFixoId ?? "");
+    setMoeda("BRL");
   }
 
   function analisarCsv(texto: string) {
@@ -171,6 +176,7 @@ export function ImportarCSV({
           <input type="hidden" name="mapeamento" value={JSON.stringify(mapeamento)} />
           <input type="hidden" name="artistaPadraoId" value={artistaPadraoId} />
           <input type="hidden" name="caminho" value={caminho} />
+          <input type="hidden" name="moeda" value={moeda} />
 
           <div>
             <p className="mb-2 text-xs font-medium text-muted">
@@ -200,6 +206,15 @@ export function ImportarCSV({
               ))}
             </div>
           </div>
+
+          {mapeamento.receita != null && (
+            <Field label="Moeda da receita">
+              <Select value={moeda} onChange={(e) => setMoeda(e.target.value as "BRL" | "USD")}>
+                <option value="BRL">Real (R$)</option>
+                <option value="USD">Dólar (US$)</option>
+              </Select>
+            </Field>
+          )}
 
           {precisaArtistaPadrao && (
             <Field label="Artista padrão (o CSV não tem coluna de artista) *">
