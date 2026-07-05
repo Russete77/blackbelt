@@ -17,7 +17,7 @@ export function ArtistaTabs({ slug }: { slug: string }) {
   const base = `/artista/${slug}`;
 
   return (
-    <nav className="flex gap-1 overflow-x-auto border-b border-line">
+    <nav className="flex gap-1 overflow-x-auto border-b border-line [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
       {ABAS.map((aba) => {
         const href = `${base}${aba.href}`;
         const ativo = path === href;
