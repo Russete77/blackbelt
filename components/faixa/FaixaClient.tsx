@@ -26,6 +26,9 @@ export function FaixaClient({ faixa, versoes, comentariosPorVersao, isAdmin = fa
   const { versaoAtual, duracao, tempoAtual } = usePlayer();
   // Tempo (s) capturado pelo clique na onda ou pelo playhead — abre o form.
   const [tsComentario, setTsComentario] = useState<number | null>(null);
+  // Com zoom, a onda rola horizontalmente e os pinos (posição em %) desalinham
+  // — escondemos até voltar ao ajuste automático.
+  const [zoomAtivo, setZoomAtivo] = useState(false);
   const versaoExibida = versaoAtual?.faixaId === faixa.id ? versaoAtual : ultimaVersao;
   const comentarios = versaoExibida ? (comentariosPorVersao[versaoExibida.id] ?? []) : [];
 
@@ -80,7 +83,7 @@ export function FaixaClient({ faixa, versoes, comentariosPorVersao, isAdmin = fa
 
       <div className="relative mb-2">
         <div className="relative pt-3">
-          {comentarios.map((c) => (
+          {!zoomAtivo && comentarios.map((c) => (
             <CommentPin key={c.id} comentario={c} duracao={duracao || versaoExibida.duracaoSegundos} />
           ))}
           <Waveform
@@ -88,6 +91,7 @@ export function FaixaClient({ faixa, versoes, comentariosPorVersao, isAdmin = fa
             arquivoUrl={versaoExibida.arquivoUrl}
             height={112}
             onInteraction={(segundos) => setTsComentario(segundos)}
+            onZoomAtivo={setZoomAtivo}
           />
         </div>
       </div>
