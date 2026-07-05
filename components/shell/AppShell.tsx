@@ -19,10 +19,10 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <PlayerProvider>
-      <div className="min-h-screen flex bg-bg text-fg">
+      <div className="flex min-h-screen bg-bg text-fg">
         <Sidebar usuario={usuario} />
-        {/* pb-40 = espaço para o player fixo (mobile) + bottom nav */}
-        <main role="main" className="flex-1 pb-40 md:pb-24">
+        {/* pb-40 = espaço para o player fixo (mobile) + bottom nav; min-w-0 evita overflow horizontal do flex */}
+        <main role="main" className="min-w-0 flex-1 pb-40 md:pb-24">
           {children}
         </main>
         <PlayerBar />
