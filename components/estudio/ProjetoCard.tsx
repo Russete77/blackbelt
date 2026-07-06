@@ -4,19 +4,22 @@ import { Card, CardBody } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Cover } from "@/components/ui/Cover";
 import { CapaUploader } from "@/components/capa/CapaUploader";
+import { ExcluirProjetoButton } from "@/components/estudio/ExcluirProjetoButton";
 import { FootprintFaixaCard } from "@/components/estudio/FootprintFaixaCard";
 import { labelEstagio, labelTipoProjeto } from "@/lib/labels";
 import { isProjetoFootprint } from "@/lib/faixa";
 import type { Faixa, Projeto } from "@/types/domain";
 
 export function ProjetoCard({
-  projeto, faixas, viewsPorFaixa = {},
+  projeto, faixas, viewsPorFaixa = {}, podeExcluir = false,
 }: {
   projeto: Projeto;
   faixas: Faixa[];
   // Views (streams somados de todas as plataformas) por faixa — só usado nos
   // cards de faixa footprint abaixo; faixa sem entrada mostra "—".
   viewsPorFaixa?: Record<string, number>;
+  // Mostra o botão "Apagar" (só admin — a RLS/ação confirmam de novo no servidor).
+  podeExcluir?: boolean;
 }) {
   const faixasEstudio = faixas.filter((f) => f.origem !== "footprint");
   const faixasFootprint = faixas.filter((f) => f.origem === "footprint");
@@ -86,6 +89,7 @@ export function ProjetoCard({
             opcional em um passo só). Este card só mantém a capa. */}
         <div className="mt-3 flex flex-wrap items-center gap-3">
           <CapaUploader tipo="projeto" id={projeto.id} rotulo="Capa" />
+          {podeExcluir && <ExcluirProjetoButton projetoId={projeto.id} projetoNome={projeto.nome} />}
         </div>
       </CardBody>
     </Card>

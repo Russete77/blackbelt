@@ -340,6 +340,35 @@ export async function alternarResolvido(_estado: EstadoAcao, formData: FormData)
   return { status: "ok", message: resolvido ? "Comentário resolvido." : "Comentário reaberto." };
 }
 
+// Apaga um projeto (só admin — a policy projetos_del exige app.is_admin()).
+// A exclusão cascateia via FK para faixas, versões, comentários e métricas.
+export async function excluirProjeto(_estado: EstadoAcao, formData: FormData): Promise<EstadoAcao> {
+  const id = String(formData.get("id") ?? "").trim();
+  const caminho = caminhoSeguro(formData.get("caminho"));
+
+  if (!id) return { status: "error", message: "Projeto inválido." };
+
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { status: "error", message: "Sessão expirada. Entre novamente." };
+  if (user.app_metadata?.role !== "admin") {
+    return { status: "error", message: "Só o admin pode apagar projetos." };
+  }
+
+  const { data, error } = await supabase
+    .from("projetos")
+    .delete()
+    .eq("id", id)
+    .select("id");
+  if (error || !data || data.length === 0) {
+    // 0 linhas = a RLS bloqueou (ou o projeto já não existe).
+    return { status: "error", message: "Não foi possível apagar o projeto." };
+  }
+
+  revalidatePath(caminho);
+  return { status: "ok", message: "Projeto apagado." };
+}
+
 export async function excluirComentario(_estado: EstadoAcao, formData: FormData): Promise<EstadoAcao> {
   const id = String(formData.get("id") ?? "").trim();
   const caminho = caminhoSeguro(formData.get("caminho"));

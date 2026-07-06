@@ -6,6 +6,7 @@ import { usePlayer } from "@/components/player/PlayerContext";
 import { ListaComentarios } from "@/components/faixa/ListaComentarios";
 import { UploadVersao } from "@/components/faixa/UploadVersao";
 import { SepararStems } from "@/components/faixa/SepararStems";
+import { ListaVersoes } from "@/components/faixa/ListaVersoes";
 import { CapaUploader } from "@/components/capa/CapaUploader";
 import { VincularYoutube } from "@/components/faixa/VincularYoutube";
 import { NovoComentario } from "@/components/faixa/NovoComentario";
@@ -116,6 +117,8 @@ export function FaixaClient({
       <p className="mb-6 text-xs text-muted">
         Clique na onda para navegar e comentar naquele ponto. Os pinos dourados são comentários.
       </p>
+
+      <ListaVersoes faixa={faixa} versoes={versoes} />
 
       <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-lg font-semibold">Comentários</h2>

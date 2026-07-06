@@ -4,6 +4,7 @@ import { ProjetoCard } from "@/components/estudio/ProjetoCard";
 import { SubirMusica } from "@/components/estudio/SubirMusica";
 import { NovoProjetoForm } from "@/components/artista/NovoProjetoForm";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { createClient } from "@/lib/supabase/server";
 import {
   getArtista, getProjetosDoArtista, getFaixasDosProjetos, getSignedCoverUrl, getViewsPorFaixa,
   filtrarProjetosEstudio,
@@ -17,6 +18,12 @@ export default async function ArtistaProjetosPage({
   const { slug } = await params;
   const artista = await getArtista(slug);
   if (!artista) return notFound();
+
+  // Admin = app_metadata.role no JWT — decide se o botão "Apagar projeto"
+  // aparece. A RLS (projetos_del) continua sendo a barreira real no servidor.
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  const isAdmin = user?.app_metadata?.role === "admin";
 
   const projetos = await getProjetosDoArtista(artista.id);
   const faixasPorProjeto = await getFaixasDosProjetos(projetos.map((p) => p.id));
@@ -54,7 +61,7 @@ export default async function ArtistaProjetosPage({
         )}
         {projetosComFaixas.map(({ projeto, faixas }, i) => (
           <div key={projeto.id} className="animate-fade-in-up" style={{ animationDelay: `${i * 40}ms` }}>
-            <ProjetoCard projeto={projeto} faixas={faixas} viewsPorFaixa={viewsPorFaixa} />
+            <ProjetoCard projeto={projeto} faixas={faixas} viewsPorFaixa={viewsPorFaixa} podeExcluir={isAdmin} />
           </div>
         ))}
       </div>
