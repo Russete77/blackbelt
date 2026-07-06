@@ -37,6 +37,10 @@ class PedidoSeparacao(BaseModel):
     audio_url: str          # URL assinada pra baixar o áudio
     versao_id: str          # id da versão da faixa (usado no caminho dos stems)
     modo: str = "beat_voz"  # "beat_voz" (2 stems) | "completo" (4 stems)
+    # Pasta no bucket onde gravar os stems. O app manda "<faixa_id>/stems/<versao_id>"
+    # para casar com a RLS de Storage (app.pode_ver_audio: 1ª pasta = faixa_id).
+    # Sem ela, cai no legado "stems/<versao_id>" (só admin lê sob RLS estrita).
+    prefixo_destino: str | None = None
 
 
 @app.get("/")
@@ -87,21 +91,25 @@ def separate(pedido: PedidoSeparacao, authorization: str = Header(default="")):
         if pedido.modo == "beat_voz":
             cmd += ["--two-stems", "vocals"]  # gera vocals.mp3 + no_vocals.mp3 (beat)
         cmd += ["--segment", "7", entrada]
-        subprocess.run(cmd, check=True)
+        # Captura stderr/stdout: sem isso, um exit != 0 vira "exit status 1" sem
+        # a causa real (que fica só nos logs). Agora a causa volta na resposta.
+        proc = subprocess.run(cmd, capture_output=True, text=True)
+        if proc.returncode != 0:
+            cauda = (proc.stderr or proc.stdout or "").strip()[-1800:]
+            raise HTTPException(status_code=500, detail=f"Demucs exit {proc.returncode}: {cauda}")
 
-        # 3) sobe cada stem pro Storage: stems/<versao_id>/<rotulo>.mp3
+        # 3) sobe cada stem pro Storage: <prefixo>/<rotulo>.mp3
+        prefixo = (pedido.prefixo_destino or f"stems/{pedido.versao_id}").strip("/")
         pasta_stems = os.path.join(saida, MODELO, "in")
         stems = {}
         for arquivo in os.listdir(pasta_stems):
             nome = pathlib.Path(arquivo).stem  # vocals | no_vocals | drums | bass | other
             rotulo = ROTULOS.get(nome, nome)
-            destino = f"stems/{pedido.versao_id}/{rotulo}.mp3"
+            destino = f"{prefixo}/{rotulo}.mp3"
             _subir_stem(os.path.join(pasta_stems, arquivo), destino)
             stems[rotulo] = destino
 
         return {"ok": True, "stems": stems}
-    except subprocess.CalledProcessError as e:
-        raise HTTPException(status_code=500, detail=f"Demucs falhou: {e}")
     except requests.HTTPError as e:
         raise HTTPException(status_code=502, detail=f"falha ao baixar/subir áudio: {e}")
     finally:

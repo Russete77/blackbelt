@@ -8,8 +8,10 @@ RUN apt-get update \
 
 WORKDIR /app
 
-# torch CPU primeiro (evita puxar a versão CUDA, que é enorme e desnecessária).
-RUN pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu
+# torch + torchaudio CPU em versões CASADAS e compatíveis com o demucs 4.0.1
+# (que exige torchaudio<2.2). Sem os pins, o pip instalava torch mais novo que
+# o torchaudio do demucs -> mismatch -> import falha -> demucs sai com exit 1.
+RUN pip install --no-cache-dir torch==2.1.2 torchaudio==2.1.2 --index-url https://download.pytorch.org/whl/cpu
 
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt

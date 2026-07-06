@@ -1,5 +1,9 @@
+# numpy<2 primeiro: o torch 2.1.x foi compilado contra numpy 1.x; com numpy 2.0
+# o import quebra ("compiled using NumPy 1.x cannot be run in NumPy 2.0") e o
+# demucs sai com exit 1 logo no começo.
+numpy<2
 fastapi
 uvicorn[standard]
-demucs
+demucs==4.0.1
 requests
 python-multipart
