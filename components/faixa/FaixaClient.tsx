@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { AutoPlay } from "@/components/faixa/AutoPlay";
 import { Waveform } from "@/components/player/Waveform";
 import { usePlayer } from "@/components/player/PlayerContext";
@@ -14,7 +15,7 @@ import { SplitsFaixa } from "@/components/faixa/SplitsFaixa";
 import { Button } from "@/components/ui/Button";
 import { Cover } from "@/components/ui/Cover";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { MessageSquarePlus, Music } from "lucide-react";
+import { ArrowLeft, MessageSquarePlus, Music } from "lucide-react";
 import { labelEstagio } from "@/lib/labels";
 import type { Comentario, Faixa, VersaoFaixa } from "@/types/domain";
 import type { SplitFaixa } from "@/lib/db";
@@ -32,9 +33,11 @@ interface FaixaClientProps {
 export function FaixaClient({
   faixa, versoes, comentariosPorVersao, isAdmin = false, splits, artistas,
 }: FaixaClientProps) {
+  const router = useRouter();
   const ultimaVersao = versoes[versoes.length - 1];
   const { versaoAtual, tempoAtual } = usePlayer();
-  // Tempo (s) capturado pelo clique na onda ou pelo playhead — abre o form.
+  // Tempo (s) do comentário em edição — só é aberto pelo botão "Adicionar
+  // comentário aqui"; arrastar a onda apenas reposiciona um form já aberto.
   // Guarda junto a versão a que pertence: trocar de versão descarta o form
   // (senão o comentário iria para a versão errada, com timestamp herdado).
   const [comentarioPendente, setComentarioPendente] =
@@ -47,10 +50,21 @@ export function FaixaClient({
       : null;
 
   const capa = <Cover src={faixa.capaUrl} alt={`Capa de ${faixa.titulo}`} icon={Music} size="md" />;
+  const voltar = (
+    <button
+      type="button"
+      onClick={() => router.back()}
+      className="mb-4 inline-flex min-h-11 items-center gap-1.5 text-sm text-muted transition-colors duration-200 hover:text-fg"
+    >
+      <ArrowLeft className="h-4 w-4" aria-hidden />
+      Voltar
+    </button>
+  );
 
   if (!ultimaVersao) {
     return (
       <div className="mx-auto max-w-3xl p-4 md:p-6">
+        {voltar}
         <div className="mb-6 flex items-center gap-4">
           {capa}
           <div className="min-w-0">
@@ -79,6 +93,7 @@ export function FaixaClient({
   return (
     <div className="mx-auto max-w-3xl p-4 md:p-6">
       <AutoPlay versao={ultimaVersao} faixaTitulo={faixa.titulo} versoesIrmas={versoes} />
+      {voltar}
       <div className="mb-6 flex flex-wrap items-start justify-between gap-3 animate-fade-in-up">
         <div className="flex items-center gap-4">
           {capa}
@@ -110,12 +125,18 @@ export function FaixaClient({
             comentarios={comentarios}
             height={112}
             onInteraction={(segundos) =>
-              setComentarioPendente({ versaoId: versaoExibida.id, ts: segundos })}
+              // Só reposiciona um comentário JÁ aberto (arrastar enquanto edita);
+              // clicar/arrastar pra navegar não deve abrir o form sozinho — quem
+              // abre é o botão explícito "Adicionar comentário aqui" abaixo.
+              setComentarioPendente((atual) =>
+                atual && atual.versaoId === versaoExibida.id
+                  ? { versaoId: versaoExibida.id, ts: segundos }
+                  : atual)}
           />
         </div>
       </div>
       <p className="mb-6 text-xs text-muted">
-        Clique na onda para navegar e comentar naquele ponto. Os pinos dourados são comentários.
+        Clique na onda para navegar. Os pinos dourados são comentários.
       </p>
 
       <ListaVersoes faixa={faixa} versoes={versoes} />

@@ -35,7 +35,8 @@ export function ListaVersoes({ faixa, versoes }: { faixa: Faixa; versoes: Versao
           return (
             <li
               key={v.id}
-              className={`flex items-center gap-3 px-3 py-2.5 transition-colors ${ativa ? "bg-surface2/60" : ""}`}
+              aria-current={ativa ? "true" : undefined}
+              className={`flex items-center gap-3 border-l-2 px-3 py-2.5 transition-colors ${ativa ? "border-accent bg-surface2/60" : "border-transparent"}`}
             >
               <button
                 type="button"

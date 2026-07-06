@@ -32,21 +32,21 @@ describe("SinoNotificacoes", () => {
 
   it("abre o dropdown ao clicar no sino e lista as notificações", () => {
     render(<SinoNotificacoes notificacoesIniciais={notificacoes} naoLidasIniciais={1} />);
-    fireEvent.click(screen.getByLabelText("Notificações"));
+    fireEvent.click(screen.getByLabelText(/Notificações/));
     expect(screen.getByText("Nova demanda")).toBeInTheDocument();
     expect(screen.getByText("Bem-vindo")).toBeInTheDocument();
   });
 
   it("some o badge depois de marcar todas como lidas", () => {
     render(<SinoNotificacoes notificacoesIniciais={notificacoes} naoLidasIniciais={1} />);
-    fireEvent.click(screen.getByLabelText("Notificações"));
+    fireEvent.click(screen.getByLabelText(/Notificações/));
     fireEvent.click(screen.getByText("Marcar todas como lidas"));
     expect(screen.queryByText("1")).not.toBeInTheDocument();
   });
 
   it("estado vazio quando não há notificações", () => {
     render(<SinoNotificacoes notificacoesIniciais={[]} naoLidasIniciais={0} />);
-    fireEvent.click(screen.getByLabelText("Notificações"));
+    fireEvent.click(screen.getByLabelText(/Notificações/));
     expect(screen.getByText("Nenhuma notificação por aqui ainda.")).toBeInTheDocument();
   });
 });

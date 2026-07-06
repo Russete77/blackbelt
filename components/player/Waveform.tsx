@@ -9,7 +9,7 @@ import { tokens } from "@/lib/tokens";
 import type { Comentario } from "@/types/domain";
 
 // cor neutra da onda não-tocada (independe do rebrand)
-const WAVE_COLOR = "#3A3A40";
+const WAVE_COLOR = tokens.colors.waveformIdle;
 // zoom em px por segundo: 0 = onda ajustada à largura; máx dá precisão fina.
 const ZOOM_MAX = 500;
 const ZOOM_PASSO = 50;
@@ -39,6 +39,7 @@ export function Waveform({
 
   const [zoomPx, setZoomPx] = useState(0);
   const [erroCarga, setErroCarga] = useState(false);
+  const [carregando, setCarregando] = useState(true);
   const [tentativa, setTentativa] = useState(0);
 
   // Refs para não recriar o wavesurfer quando os callbacks mudam de identidade.
@@ -57,6 +58,7 @@ export function Waveform({
     if (!containerRef.current || !arquivoUrl) return;
     // Versão nova = instância nova: zera zoom e loop.
     setErroCarga(false);
+    setCarregando(true);
     setZoomPx(0);
     marcadoresRef.current = [];
     loopRegiaoRef.current = null;
@@ -81,14 +83,20 @@ export function Waveform({
     wsRef.current = ws;
     regionsRef.current = regions;
     player.registerWavesurfer(ws);
-    ws.on("ready", () => player._onReady(ws.getDuration()));
+    ws.on("ready", () => {
+      setCarregando(false);
+      player._onReady(ws.getDuration());
+    });
     ws.on("timeupdate", (t) => player._onTime(t));
     ws.on("play", () => player._onPlayPause(true));
     ws.on("pause", () => player._onPlayPause(false));
     ws.on("interaction", (novoTempo) => onInteractionRef.current?.(novoTempo));
     // Signed URL expirada (1h) ou falha de rede: sem isto a onda fica vazia
     // e muda — mostramos aviso com opção de recarregar.
-    ws.on("error", () => setErroCarga(true));
+    ws.on("error", () => {
+      setErroCarga(true);
+      setCarregando(false);
+    });
     ws.setPlaybackRate(player.velocidade);
 
     // Clique num marcador de comentário (região de largura zero) navega até
@@ -262,17 +270,26 @@ export function Waveform({
   }
   return (
     <div>
-      <div
-        ref={containerRef}
-        role="slider"
-        tabIndex={0}
-        aria-label="Posição na faixa (setas para navegar, espaço para tocar/pausar)"
-        aria-valuemin={0}
-        aria-valuemax={Math.round(player.duracao)}
-        aria-valuenow={Math.round(player.tempoAtual)}
-        onKeyDown={aoTeclar}
-        className="w-full cursor-pointer rounded-sm focus-visible:outline-2 focus-visible:outline-accent"
-      />
+      <div className="relative">
+        <div
+          ref={containerRef}
+          role="slider"
+          tabIndex={0}
+          aria-label="Posição na faixa (setas para navegar, espaço para tocar/pausar)"
+          aria-valuemin={0}
+          aria-valuemax={Math.round(player.duracao)}
+          aria-valuenow={Math.round(player.tempoAtual)}
+          onKeyDown={aoTeclar}
+          className="w-full cursor-pointer rounded-sm focus-visible:outline-2 focus-visible:outline-accent"
+        />
+        {carregando && (
+          <div
+            aria-hidden
+            style={{ height }}
+            className="pointer-events-none absolute inset-0 top-0 animate-pulse-soft rounded-sm bg-surface2"
+          />
+        )}
+      </div>
       <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2">
         <div className="flex items-center gap-1.5">
           <button
@@ -292,7 +309,7 @@ export function Waveform({
             value={zoomPx}
             onChange={(e) => aplicarZoom(Number(e.target.value))}
             aria-label="Zoom da forma de onda"
-            className="h-1 w-28 cursor-pointer accent-accent"
+            className="h-1 w-28 cursor-pointer accent-accent py-2.5"
           />
           <button
             onClick={() => aplicarZoom(zoomPx + ZOOM_PASSO)}
@@ -313,7 +330,7 @@ export function Waveform({
               onClick={() => player.pararLoopComentario()}
               aria-label="Parar o loop"
               title="Parar o loop"
-              className="rounded-md p-0.5 transition-colors duration-200 hover:bg-accent/20"
+              className="rounded-md p-1.5 transition-colors duration-200 hover:bg-accent/20"
             >
               <X className="h-3.5 w-3.5" aria-hidden />
             </button>

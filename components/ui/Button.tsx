@@ -9,7 +9,7 @@ const variants: Record<Variant, string> = {
   outline: "border border-line text-fg hover:border-accent/40 hover:bg-surface2 active:bg-surface2",
 };
 const sizes: Record<Size, string> = {
-  sm: "h-9 px-3 text-sm",
+  sm: "min-h-11 px-3 text-sm",
   md: "h-11 px-4 text-sm",
   icon: "h-11 w-11 p-0 justify-center",
 };

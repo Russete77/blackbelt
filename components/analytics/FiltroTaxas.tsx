@@ -11,6 +11,7 @@ import { useState } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { Calculator } from "lucide-react";
 import { Input } from "@/components/ui/Input";
+import { Field } from "@/components/ui/Field";
 
 type ChaveTaxa = "ryt" | "rsp" | "rdz";
 
@@ -57,8 +58,11 @@ export function FiltroTaxas({ ryt, rsp, rdz }: { ryt: number; rsp: number; rdz: 
         Taxas est.
       </span>
       {CAMPOS.map((c) => (
-        <label key={c.chave} className="flex items-center gap-1.5 whitespace-nowrap text-xs text-muted">
-          {c.rotulo}
+        <Field
+          key={c.chave}
+          label={c.rotulo}
+          className="flex-none flex-col gap-1 whitespace-nowrap text-xs text-muted sm:flex-row sm:items-center sm:gap-1.5"
+        >
           <Input
             id={c.chave}
             inputMode="decimal"
@@ -68,9 +72,9 @@ export function FiltroTaxas({ ryt, rsp, rdz }: { ryt: number; rsp: number; rdz: 
             onKeyDown={(e) => {
               if (e.key === "Enter") { e.preventDefault(); aplicar(c.chave); }
             }}
-            className="w-20"
+            className="w-full sm:w-20"
           />
-        </label>
+        </Field>
       ))}
     </div>
   );

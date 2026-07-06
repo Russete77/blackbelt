@@ -19,7 +19,7 @@ export function CotacaoDolar({ cotacao }: { cotacao: Cotacao }) {
     <p className="flex items-center gap-1.5 font-mono text-xs text-muted">
       <ArrowLeftRight className="h-3.5 w-3.5 shrink-0 text-accent" aria-hidden />
       Dólar hoje: {formatarReceita(cotacao.brl)}
-      <span className="text-muted/70">· atualizado às {horaAtualizacao(cotacao.atualizadoEm)}</span>
+      <span className="text-muted">· atualizado às {horaAtualizacao(cotacao.atualizadoEm)}</span>
     </p>
   );
 }

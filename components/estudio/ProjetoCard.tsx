@@ -39,7 +39,7 @@ export function ProjetoCard({
           <div className="flex min-w-0 items-center gap-3">
             <Cover src={projeto.capaUrl} alt={`Capa de ${projeto.nome}`} icon={Disc3} size="sm" />
             <div className="min-w-0">
-              <h3 className="truncate font-semibold">{projeto.nome}</h3>
+              <h3 className="truncate text-sm font-semibold text-fg">{projeto.nome}</h3>
               <p className="truncate text-xs text-muted">
                 {labelTipoProjeto(projeto.tipo)}
                 {projeto.artistas.length > 0 ? ` · ${projeto.artistas.join(", ")}` : " · Selo"}

@@ -75,6 +75,7 @@ export default async function AnalyticsPage({
   });
   const linhasMes = porMes(filtradas).map((l) => ({ rotulo: l.rotulo, valor: l.receita }));
   const linhasArtistaPlataforma = porArtistaEPlataforma(filtradas);
+  const artistaFiltrado = artista ? artistas.find((a) => a.id === artista) : undefined;
 
   const seriesPlataforma: SerieBarra[] = plataformasDistintas.map((p) => ({
     chave: p,
@@ -158,7 +159,11 @@ export default async function AnalyticsPage({
 
           <div>
             <h2 className="mb-3 text-sm font-semibold">Por faixa</h2>
-            <TabelaFaixas linhas={linhasFaixas} taxaBrl={cotacao.brl} />
+            <TabelaFaixas
+              linhas={linhasFaixas}
+              taxaBrl={cotacao.brl}
+              tituloVazio={artistaFiltrado ? `Nenhuma faixa monetizada ainda para ${artistaFiltrado.nome}.` : undefined}
+            />
           </div>
         </div>
       )}
@@ -173,7 +178,7 @@ export default async function AnalyticsPage({
         <p className="mt-3 flex items-center gap-1.5 text-xs text-muted">
           <Link2 className="h-3.5 w-3.5 shrink-0" aria-hidden />
           Quer trazer catálogo e views de um artista específico? Use a aba{" "}
-          <strong className="font-medium text-fg">Conectar &amp; Importar</strong> na página do artista —
+          <strong className="font-medium text-fg">Importar</strong> na página do artista —
           veja a lista em{" "}
           <Link href="/artistas" className="underline decoration-dotted underline-offset-2 transition-colors duration-200 hover:text-accent">
             Artistas

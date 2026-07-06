@@ -20,6 +20,12 @@ import { cn } from "@/lib/cn";
 // getMetricasDoArtista + totaisMetricas para streams), com as MESMAS taxas
 // padrão de estimativa (taxasDosParams({}) === o que a página Números mostra
 // sem nenhum filtro em ?ryt=&rsp=&rdz=) — os dois lugares têm que bater.
+//
+// Esta tira não recebe searchParams (fica no layout do artista, visível em
+// toda aba, não só em Números) — por isso o valor aqui é sempre a
+// ESTIMATIVA PADRÃO (taxas sem filtro). Se o usuário ajustar as taxas em
+// Números, os dois números podem divergir; o rótulo/caption abaixo deixa
+// isso explícito em vez de fingir que é sempre igual.
 export async function ResumoArtista({ artistaId, slug }: { artistaId: string; slug: string }) {
   const taxas = taxasDosParams({});
 
@@ -42,13 +48,13 @@ export async function ResumoArtista({ artistaId, slug }: { artistaId: string; sl
   const demandasPendentes = demandas.filter((d) => d.status !== "concluida").length;
 
   return (
-    <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4">
+    <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-4 sm:gap-4">
       <CardResumo
         icon={HandCoins}
-        label="Seu recebimento"
+        label="Recebimento do artista"
         info="O que fica pra você: a receita da faixa vezes o seu %."
         value={formatarValorDual(recebimentoTotal, "BRL", cotacao.brl)}
-        caption="estimativa · ajusta nas taxas"
+        caption="estimativa padrão · ajuste as taxas em Números"
       />
       <CardResumo
         icon={Headphones}

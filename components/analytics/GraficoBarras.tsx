@@ -49,6 +49,23 @@ function TooltipPersonalizado({
   );
 }
 
+function resumirGraficoParaLeitor(
+  dados: Record<string, string | number>[],
+  categoriaChave: string,
+  series: SerieBarra[],
+  formatarValor: (n: number) => string,
+) {
+  if (!dados.length) return "Gráfico de barras sem dados.";
+  const partes = dados.map((linha) => {
+    const rotulo = String(linha[categoriaChave] ?? "");
+    const valores = series
+      .map((serie) => `${serie.nome}: ${formatarValor(Number(linha[serie.chave]) || 0)}`)
+      .join(", ");
+    return `${rotulo} — ${valores}`;
+  });
+  return `Gráfico de barras. ${partes.join("; ")}.`;
+}
+
 export function GraficoBarras({
   dados, categoriaChave = "rotulo", series, formato, empilhado = false, altura = 260,
 }: {
@@ -60,8 +77,9 @@ export function GraficoBarras({
   altura?: number;
 }) {
   const formatarValor = (v: number) => formatarValorPorTipo(formato, v);
+  const resumoAcessivel = resumirGraficoParaLeitor(dados, categoriaChave, series, formatarValor);
   return (
-    <div style={{ width: "100%", height: altura }}>
+    <div style={{ width: "100%", height: altura }} role="img" aria-label={resumoAcessivel}>
       <ResponsiveContainer>
         <BarChart data={dados} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
           <CartesianGrid vertical={false} stroke={tokens.colors.line} strokeOpacity={0.6} />

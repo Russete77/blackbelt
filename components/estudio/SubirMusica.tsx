@@ -9,12 +9,13 @@
 //   4) navega para /faixa/[id], já tocável.
 import { useRef, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
-import { UploadCloud, Music2, X, FileAudio } from "lucide-react";
+import { UploadCloud, FileAudio } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/Button";
 import { Field } from "@/components/ui/Field";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
+import { Modal } from "@/components/ui/Modal";
 import { validarArquivoAudio, lerDuracao } from "@/lib/audio";
 import { labelTipoProjeto } from "@/lib/labels";
 import { iniciarFaixa, type EstadoAcaoComId } from "@/app/(app)/actions";
@@ -168,126 +169,105 @@ export function SubirMusica({
   }
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
-      onClick={fechar}
-    >
-      <form
-        onSubmit={enviar}
-        onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-lg animate-fade-in-up rounded-lg border border-line bg-surface p-5 shadow-lg shadow-black/40"
-      >
-        <div className="mb-4 flex items-center justify-between">
-          <h3 className="flex items-center gap-2 text-base font-semibold">
-            <Music2 className="h-4 w-4 text-accent" aria-hidden />
-            Subir música
-          </h3>
-          <button
-            type="button"
-            onClick={fechar}
-            aria-label="Fechar"
+    <Modal open={aberto} onClose={fechar} title="Subir música">
+      <form onSubmit={enviar} className="flex flex-col gap-3.5">
+        <Field label="Nome da música">
+          <Input
+            autoFocus
+            required
+            value={titulo}
+            onChange={(e) => setTitulo(e.target.value)}
+            placeholder="Ex.: Madrugada"
             disabled={enviando}
-            className="rounded-md p-1.5 text-muted transition-colors duration-200 hover:bg-surface2 hover:text-fg disabled:pointer-events-none disabled:opacity-50"
+          />
+        </Field>
+
+        <div>
+          <p className="mb-1.5 text-xs font-medium text-muted">Arquivo de áudio</p>
+          <label
+            onDragOver={(e) => { e.preventDefault(); setArrastando(true); }}
+            onDragLeave={() => setArrastando(false)}
+            onDrop={(e) => {
+              e.preventDefault();
+              setArrastando(false);
+              escolherArquivo(e.dataTransfer.files?.[0]);
+            }}
+            className={`flex min-h-28 cursor-pointer flex-col items-center justify-center gap-1.5 rounded-md border-2 border-dashed px-4 py-6 text-center transition-colors duration-200 ${
+              arrastando ? "border-accent bg-accent/5" : "border-line bg-surface2 hover:border-accent/40"
+            } ${enviando ? "pointer-events-none opacity-60" : ""}`}
           >
-            <X className="h-4 w-4" aria-hidden />
-          </button>
-        </div>
-
-        <div className="flex flex-col gap-3.5">
-          <Field label="Nome da música">
-            <Input
-              autoFocus
-              required
-              value={titulo}
-              onChange={(e) => setTitulo(e.target.value)}
-              placeholder="Ex.: Madrugada"
+            <input
+              ref={inputRef}
+              type="file"
+              accept="audio/*"
+              className="sr-only"
               disabled={enviando}
+              onChange={(e) => escolherArquivo(e.target.files?.[0])}
             />
-          </Field>
-
-          <div>
-            <p className="mb-1.5 text-xs font-medium text-muted">Arquivo de áudio</p>
-            <label
-              onDragOver={(e) => { e.preventDefault(); setArrastando(true); }}
-              onDragLeave={() => setArrastando(false)}
-              onDrop={(e) => {
-                e.preventDefault();
-                setArrastando(false);
-                escolherArquivo(e.dataTransfer.files?.[0]);
-              }}
-              className={`flex min-h-28 cursor-pointer flex-col items-center justify-center gap-1.5 rounded-md border-2 border-dashed px-4 py-6 text-center transition-colors duration-200 ${
-                arrastando ? "border-accent bg-accent/5" : "border-line bg-surface2 hover:border-accent/40"
-              } ${enviando ? "pointer-events-none opacity-60" : ""}`}
-            >
-              <input
-                ref={inputRef}
-                type="file"
-                accept="audio/*"
-                className="sr-only"
-                disabled={enviando}
-                onChange={(e) => escolherArquivo(e.target.files?.[0])}
-              />
-              {arquivo ? (
-                <>
-                  <FileAudio className="h-5 w-5 text-accent" aria-hidden />
-                  <span className="max-w-full truncate text-sm font-medium text-fg">{arquivo.name}</span>
-                  <span className="text-xs text-muted">{(arquivo.size / 1024 / 1024).toFixed(1)} MB — clique para trocar</span>
-                </>
-              ) : (
-                <>
-                  <UploadCloud className="h-5 w-5 text-muted" aria-hidden />
-                  <span className="text-sm font-medium text-fg">Arraste o áudio aqui ou clique para escolher</span>
-                  <span className="text-xs text-muted">MP3, WAV, FLAC, M4A, AAC, OGG, OPUS — até 200 MB</span>
-                </>
-              )}
-            </label>
-          </div>
-
-          <Field label="Projeto (opcional)">
-            <Select
-              value={modoProjeto === "auto" ? "" : modoProjeto === "novo" ? "novo" : projetoId}
-              onChange={(e) => {
-                const v = e.target.value;
-                if (v === "") { setModoProjeto("auto"); setProjetoId(""); }
-                else if (v === "novo") { setModoProjeto("novo"); setProjetoId(""); }
-                else { setModoProjeto("existente"); setProjetoId(v); }
-              }}
-              disabled={enviando}
-            >
-              <option value="">{projetos.length > 0 ? `Sem projeto (${nomeProjetoPadrao})` : nomeProjetoPadrao}</option>
-              {projetos.map((p) => (
-                <option key={p.id} value={p.id}>{p.nome}</option>
-              ))}
-              <option value="novo">Novo projeto…</option>
-            </Select>
-          </Field>
-
-          {modoProjeto === "novo" && (
-            <div className="flex flex-col gap-2 rounded-md border border-line bg-surface2 p-3 animate-fade-in-up">
-              <Field label="Nome do novo projeto">
-                <Input
-                  value={novoNome}
-                  onChange={(e) => setNovoNome(e.target.value)}
-                  placeholder={nomeProjetoPadrao}
-                  disabled={enviando}
-                />
-              </Field>
-              <Field label="Tipo">
-                <Select value={novoTipo} onChange={(e) => setNovoTipo(e.target.value as TipoProjeto)} disabled={enviando}>
-                  {TIPOS_PROJETO.map((t) => (
-                    <option key={t} value={t}>{labelTipoProjeto(t)}</option>
-                  ))}
-                </Select>
-              </Field>
-            </div>
-          )}
-
-          <Button type="submit" disabled={enviando}>
-            {enviando ? TEXTO_ETAPA[etapa as Exclude<Etapa, "idle">] : "Enviar e criar faixa"}
-          </Button>
-          {erro && <p className="text-xs text-danger">{erro}</p>}
+            {arquivo ? (
+              <>
+                <FileAudio className="h-5 w-5 text-accent" aria-hidden />
+                <span className="max-w-full truncate text-sm font-medium text-fg">{arquivo.name}</span>
+                <span className="text-xs text-muted">{(arquivo.size / 1024 / 1024).toFixed(1)} MB — clique para trocar</span>
+              </>
+            ) : (
+              <>
+                <UploadCloud className="h-5 w-5 text-muted" aria-hidden />
+                <span className="text-sm font-medium text-fg">Arraste o áudio aqui ou clique para escolher</span>
+                <span className="text-xs text-muted">MP3, WAV, FLAC, M4A, AAC, OGG, OPUS — até 200 MB</span>
+              </>
+            )}
+          </label>
         </div>
+
+        <Field label="Projeto (opcional)">
+          <Select
+            value={modoProjeto === "auto" ? "" : modoProjeto === "novo" ? "novo" : projetoId}
+            onChange={(e) => {
+              const v = e.target.value;
+              if (v === "") { setModoProjeto("auto"); setProjetoId(""); }
+              else if (v === "novo") { setModoProjeto("novo"); setProjetoId(""); }
+              else { setModoProjeto("existente"); setProjetoId(v); }
+            }}
+            disabled={enviando}
+          >
+            <option value="">{projetos.length > 0 ? `Sem projeto (${nomeProjetoPadrao})` : nomeProjetoPadrao}</option>
+            {projetos.map((p) => (
+              <option key={p.id} value={p.id}>{p.nome}</option>
+            ))}
+            <option value="novo">Novo projeto…</option>
+          </Select>
+        </Field>
+
+        {modoProjeto === "novo" && (
+          <div className="flex flex-col gap-2 rounded-md border border-line bg-surface2 p-3 animate-fade-in-up">
+            <Field label="Nome do novo projeto">
+              <Input
+                value={novoNome}
+                onChange={(e) => setNovoNome(e.target.value)}
+                placeholder={nomeProjetoPadrao}
+                disabled={enviando}
+              />
+            </Field>
+            <Field label="Tipo">
+              <Select value={novoTipo} onChange={(e) => setNovoTipo(e.target.value as TipoProjeto)} disabled={enviando}>
+                {TIPOS_PROJETO.map((t) => (
+                  <option key={t} value={t}>{labelTipoProjeto(t)}</option>
+                ))}
+              </Select>
+            </Field>
+          </div>
+        )}
+
+        <Button type="submit" disabled={enviando}>
+          {enviando ? TEXTO_ETAPA[etapa as Exclude<Etapa, "idle">] : "Enviar e criar faixa"}
+        </Button>
+        {erro && (
+          <p role="alert" aria-live="polite" className="text-xs text-danger">
+            {erro}
+          </p>
+        )}
       </form>
-    </div>
+    </Modal>
   );
 }

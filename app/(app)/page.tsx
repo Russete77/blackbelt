@@ -1,26 +1,26 @@
 import { HomeView } from "@/components/home/HomeView";
-import { getArtistas, getProjetosDoSelo, getFaixasDosProjetos, getSignedCoverUrl } from "@/lib/db";
-import type { Artista, Projeto } from "@/types/domain";
-
-// Troca o caminho salvo no banco pela signed URL exibível (bucket privado).
-async function comFotoAssinada(a: Artista): Promise<Artista> {
-  if (!a.fotoUrl) return a;
-  return { ...a, fotoUrl: (await getSignedCoverUrl(a.fotoUrl)) ?? undefined };
-}
-async function comCapaAssinada(p: Projeto): Promise<Projeto> {
-  if (!p.capaUrl) return p;
-  return { ...p, capaUrl: (await getSignedCoverUrl(p.capaUrl)) ?? undefined };
-}
+import { getArtistas, getProjetosDoSelo, getFaixasDosProjetos, getSignedCoverUrls } from "@/lib/db";
 
 export default async function Home() {
   const [artistas, projetosSelo] = await Promise.all([getArtistas(), getProjetosDoSelo()]);
-  const [artistasComFoto, faixasPorProjeto, projetosAssinados] = await Promise.all([
-    Promise.all(artistas.map(comFotoAssinada)),
+
+  // Assina fotos de artista + capas de projeto numa única chamada em lote
+  // (era 1 chamada de Storage por artista/projeto).
+  const caminhos = [
+    ...artistas.map((a) => a.fotoUrl).filter((p): p is string => Boolean(p)),
+    ...projetosSelo.map((p) => p.capaUrl).filter((p): p is string => Boolean(p)),
+  ];
+  const [urlPorPath, faixasPorProjeto] = await Promise.all([
+    getSignedCoverUrls(caminhos),
     getFaixasDosProjetos(projetosSelo.map((p) => p.id)),
-    Promise.all(projetosSelo.map(comCapaAssinada)),
   ]);
-  const projetosComFaixas = projetosAssinados.map((projeto) => ({
-    projeto,
+
+  const artistasComFoto = artistas.map((a) => ({
+    ...a,
+    fotoUrl: a.fotoUrl ? (urlPorPath.get(a.fotoUrl) ?? undefined) : undefined,
+  }));
+  const projetosComFaixas = projetosSelo.map((projeto) => ({
+    projeto: { ...projeto, capaUrl: projeto.capaUrl ? (urlPorPath.get(projeto.capaUrl) ?? undefined) : undefined },
     faixas: faixasPorProjeto.get(projeto.id) ?? [],
   }));
 

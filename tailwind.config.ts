@@ -17,6 +17,7 @@ export default {
         danger: tokens.colors.danger,
         warning: tokens.colors.warning,
         success: tokens.colors.success,
+        "waveform-idle": tokens.colors.waveformIdle,
       },
       borderRadius: {
         sm: tokens.radii.sm,

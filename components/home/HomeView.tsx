@@ -20,7 +20,7 @@ export function HomeView({ artistas, projetosSelo }: HomeViewProps) {
         className="pointer-events-none absolute left-4 top-0 h-48 w-72 rounded-full bg-accent/10 blur-3xl md:left-6"
       />
       <div className="relative animate-fade-in-up">
-        <h1 className="mb-1 font-display text-3xl uppercase tracking-tight md:text-4xl">
+        <h1 className="mb-1 font-display text-2xl uppercase tracking-tight md:text-3xl">
           BLACK <span className="text-accent">BELT</span> 360
         </h1>
         <p className="mb-8 text-muted">Organização 360 do selo. Escolha um artista.</p>
@@ -55,10 +55,10 @@ export function HomeView({ artistas, projetosSelo }: HomeViewProps) {
         <h2 className="text-lg font-semibold">Selo</h2>
         <Badge tone="neutral">projetos do selo</Badge>
       </div>
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         {projetosSelo.length === 0 && (
           <EmptyState
-            className="md:col-span-2 xl:col-span-3"
+            className="sm:col-span-2 xl:col-span-3"
             icon={Disc3}
             title="Nenhum projeto do selo no momento."
             hint="Projetos sem artista específico (coletâneas, compilações) aparecem aqui."

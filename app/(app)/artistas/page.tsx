@@ -3,14 +3,23 @@ import { Users } from "lucide-react";
 import { Card, CardBody } from "@/components/ui/Card";
 import { Avatar } from "@/components/ui/Avatar";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { NovoArtistaForm } from "@/components/artista/NovoArtistaForm";
 import { getArtistas } from "@/lib/db";
+import { createClient } from "@/lib/supabase/server";
 
 export default async function ArtistasPage() {
   const artistas = await getArtistas();
 
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  const isAdmin = user?.app_metadata?.role === "admin";
+
   return (
     <div className="p-4 md:p-6">
-      <h1 className="mb-1 font-display text-2xl uppercase tracking-tight md:text-3xl">Artistas</h1>
+      <div className="mb-1 flex flex-wrap items-start justify-between gap-3">
+        <h1 className="font-display text-2xl uppercase tracking-tight md:text-3xl">Artistas</h1>
+        {isAdmin && <NovoArtistaForm />}
+      </div>
       <p className="mb-6 text-sm text-muted">Todos os artistas do selo.</p>
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         {artistas.length === 0 && (

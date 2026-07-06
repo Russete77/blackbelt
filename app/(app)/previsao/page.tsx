@@ -70,14 +70,14 @@ export default async function PrevisaoPage({
   const tendenciaStreams = combinarComProjecao(serieStreams, MESES_PROJETADOS);
   const tendenciaReceita = combinarComProjecao(serieReceita, MESES_PROJETADOS);
 
-  const expectativa = mediaPorFaixa(metricas);
+  const expectativa = mediaPorFaixa(metricasFluxo);
   const historicoCurto = serieMensal.length > 0 && serieMensal.length < MESES_MINIMOS_CONFIAVEIS;
 
   return (
     <div className="p-4 md:p-6">
       <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="mb-1 font-display text-2xl uppercase tracking-tight md:text-3xl">Previsão de lançamentos</h1>
+          <h1 className="mb-1 font-display text-2xl uppercase tracking-tight md:text-3xl">Projeção de streams e receita</h1>
           <p className="max-w-2xl text-sm text-muted">
             Tendência futura estimada a partir do histórico de métricas já importado — uma projeção, não uma
             garantia.

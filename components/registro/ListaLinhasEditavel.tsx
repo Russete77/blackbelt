@@ -31,7 +31,7 @@ export function ListaLinhasEditavel<T>({
         {itens.map((item, i) => (
           <div
             key={i}
-            className="flex flex-wrap items-center gap-2 rounded-md border border-line bg-surface2/40 p-2"
+            className="flex flex-wrap items-start gap-2 rounded-md border border-line bg-surface2/40 p-2"
           >
             <div className="flex flex-1 flex-wrap gap-2">{renderLinha(item, (patch) => atualizar(i, patch), i)}</div>
             <button

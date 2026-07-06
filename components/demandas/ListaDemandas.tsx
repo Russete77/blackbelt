@@ -29,7 +29,7 @@ export function ListaDemandas({
         return (
           <section key={grupoStatus}>
             <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">
-              {labelStatusDemanda(grupoStatus)} <span className="text-muted/70">({itens.length})</span>
+              {labelStatusDemanda(grupoStatus)} <span className="text-muted">({itens.length})</span>
             </h3>
             <div className="flex flex-col gap-3">
               {itens.map((d) => (

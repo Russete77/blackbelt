@@ -12,7 +12,7 @@ import { ImportarCSV } from "@/components/analytics/ImportarCSV";
 import { SincronizarYoutube } from "@/components/analytics/SincronizarYoutube";
 import { CotacaoDolar } from "@/components/analytics/CotacaoDolar";
 import {
-  totaisMetricas, porPlataforma, formatarStreams, PALETA_CATEGORICA,
+  porPlataforma, formatarStreams, PALETA_CATEGORICA,
   recebimentoArtista, converterReceitaParaBRL,
 } from "@/lib/metricas";
 import { estimarReceitaPorFaixa, taxasDosParams } from "@/lib/estimativa";
@@ -33,15 +33,14 @@ export default async function NumerosPage({
   const artista = await getArtista(slug);
   if (!artista) return notFound();
 
-  const cotacao = await cotacaoDolar();
-  const [metricasBrutas, faixasComSplit] = await Promise.all([
+  const [cotacao, metricasBrutas] = await Promise.all([
+    cotacaoDolar(),
     getMetricasDoArtista(artista.id),
-    getFaixasDoArtistaComNumeros(artista.id, cotacao.brl),
   ]);
+  const faixasComSplit = await getFaixasDoArtistaComNumeros(artista.id, cotacao.brl);
   // Receita convertida pra BRL pela cotação do dia ANTES de agregar — ver
   // mesmo racional em app/(app)/analytics/page.tsx e lib/metricas.ts.
   const metricas = converterReceitaParaBRL(metricasBrutas, cotacao.brl);
-  const totais = totaisMetricas(metricas);
   const linhasPlataforma = porPlataforma(metricas).map((l) => ({ rotulo: l.rotulo, streams: l.streams }));
 
   // "Por faixa" com split (%) — inclui feats: a receita mostrada é da FAIXA
@@ -65,6 +64,10 @@ export default async function NumerosPage({
     };
   });
   const recebimentoTotal = linhasFaixasSplit.reduce((s, l) => s + (l.recebimento ?? 0), 0);
+  // Mesma base do "Recebimento" (getFaixasDoArtistaComNumeros, que agrega por
+  // faixa incluindo feats) — não `getMetricasDoArtista`, que não inclui feats
+  // e deixava "Streams" e "Recebimento" descasados no topo da página.
+  const streamsTotal = linhasFaixasSplit.reduce((s, l) => s + (l.streams ?? 0), 0);
   // Igual ao StatTile "Receita" de app/(app)/analytics/page.tsx: precisa
   // somar a receita JÁ COM a estimativa por plataforma (não `totais.receita`
   // puro), senão este número no topo não muda quando o usuário ajusta as
@@ -80,7 +83,7 @@ export default async function NumerosPage({
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-wrap items-end justify-between gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h2 className="text-lg font-semibold">Números</h2>
           <div className="mt-1">
@@ -99,7 +102,7 @@ export default async function NumerosPage({
       ) : (
         <>
           <div className="grid gap-4 sm:grid-cols-3">
-            <StatTile icon={Headphones} label="Streams" value={formatarStreams(totais.streams)} />
+            <StatTile icon={Headphones} label="Streams" value={formatarStreams(streamsTotal)} />
             <StatTile
               icon={Wallet}
               label="Receita"

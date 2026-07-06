@@ -20,6 +20,22 @@ export function SepararStems({ versaoId, rotulo }: { versaoId: string; rotulo: s
   const [msg, setMsg] = useState<{ tipo: "ok" | "error" | "info"; texto: string } | null>(null);
   const tentativas = useRef(0);
 
+  // Reidrata o estado ao montar: se a página foi recarregada em meio a um job,
+  // o servidor ainda está processando — retoma o polling em vez de deixar o
+  // usuário disparar um novo (e duplicar o job).
+  useEffect(() => {
+    let cancelado = false;
+    statusStems(versaoId).then((r) => {
+      if (!cancelado && r.status === "processando") {
+        setProcessando(true);
+        setMsg({ tipo: "info", texto: "Ainda processando — retomando o acompanhamento." });
+      }
+    });
+    return () => {
+      cancelado = true;
+    };
+  }, [versaoId]);
+
   // Enquanto "processando", pergunta o status periodicamente até pronto/erro/teto.
   useEffect(() => {
     if (!processando) return;
@@ -74,10 +90,16 @@ export function SepararStems({ versaoId, rotulo }: { versaoId: string; rotulo: s
         {processando ? "Separando..." : pendente ? "Iniciando..." : "Separar stems"}
       </Button>
       {processando && (
-        <span className="text-[11px] text-muted">Em CPU leva alguns minutos — pode deixar a página aberta.</span>
+        <span className="text-[11px] text-muted" role="status" aria-live="polite">
+          Em CPU leva alguns minutos — pode deixar a página aberta.
+        </span>
       )}
       {msg && (
-        <span className={`text-right text-xs ${msg.tipo === "ok" ? "text-success" : msg.tipo === "error" ? "text-danger" : "text-muted"}`}>
+        <span
+          className={`text-right text-xs ${msg.tipo === "ok" ? "text-success" : msg.tipo === "error" ? "text-danger" : "text-muted"}`}
+          role={msg.tipo === "error" ? "alert" : "status"}
+          aria-live="polite"
+        >
           {msg.texto}
         </span>
       )}

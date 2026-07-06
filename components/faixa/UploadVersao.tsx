@@ -4,7 +4,7 @@
 // A página da faixa resolve a signed URL a partir de arquivo_path no servidor.
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Upload, X } from "lucide-react";
+import { Loader2, Upload, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/Button";
 import { Field } from "@/components/ui/Field";
@@ -118,9 +118,20 @@ export function UploadVersao({ faixaId }: { faixaId: string }) {
           />
         </Field>
         <Button type="submit" size="sm" disabled={enviando}>
-          {enviando ? "Enviando..." : "Enviar versão"}
+          {enviando ? (
+            <>
+              <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+              Enviando...
+            </>
+          ) : (
+            "Enviar versão"
+          )}
         </Button>
-        {erro && <p className="text-xs text-danger">{erro}</p>}
+        {erro && (
+          <p className="text-xs text-danger" role="alert" aria-live="polite">
+            {erro}
+          </p>
+        )}
       </div>
     </form>
   );

@@ -9,7 +9,7 @@ export const navItems: NavItem[] = [
   { href: "/", label: "Home", icon: Home, disponivel: true },
   { href: "/artistas", label: "Artistas", icon: Users, disponivel: true },
   { href: "/estudio", label: "Estúdio", icon: Headphones, disponivel: true },
-  { href: "/analytics", label: "Analytics", icon: BarChart3, disponivel: true },
+  { href: "/analytics", label: "Números do selo", icon: BarChart3, disponivel: true },
   { href: "/previsao", label: "Previsão", icon: TrendingUp, disponivel: true },
   { href: "/shows", label: "Shows", icon: Mic2, disponivel: true },
   { href: "/registro", label: "Registro", icon: FileText, disponivel: true },
@@ -24,10 +24,11 @@ export function isNavAtivo(href: string, path: string): boolean {
   return path === href || path.startsWith(`${href}/`);
 }
 
-// Barra mobile tem 5 slots: disponíveis primeiro (um módulo novo no fim da
-// lista nunca ficava invisível no celular), "Em breve" completa o resto.
+// Barra mobile mostra os 7 módulos com rolagem horizontal — cortar em 5
+// slots deixava Shows e Registro invisíveis no celular. Disponíveis primeiro,
+// "Em breve" completa o resto.
 export function navItensMobile(): NavItem[] {
   const disponiveis = navItems.filter((i) => i.disponivel);
   const emBreve = navItems.filter((i) => !i.disponivel);
-  return [...disponiveis, ...emBreve].slice(0, 5);
+  return [...disponiveis, ...emBreve];
 }

@@ -28,6 +28,50 @@ const PRIORIDADES_COMENTARIO = ["alta", "media", "baixa"] as const;
 // caminhoSeguro: ver lib/forms.ts (movido de volta para lá — este arquivo é
 // "use server", e todo export aqui precisa ser uma Server Action async).
 
+// Gera um slug simples e estável a partir do nome do artista (usado como
+// identificador na URL /artista/[slug]) — minúsculas, sem acento, espaços e
+// símbolos viram hífen único, sem hífen nas pontas.
+function gerarSlug(nome: string): string {
+  return nome
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+// Cadastra um novo artista do selo (só admin — mesma policy de escrita restrita
+// usada em excluirProjeto/excluirComentario). O slug é derivado do nome; se já
+// existir um artista com o mesmo slug, a constraint única do banco rejeita e
+// devolvemos uma mensagem amigável em vez do erro cru do Postgres.
+export async function criarArtista(_estado: EstadoAcao, formData: FormData): Promise<EstadoAcao> {
+  const nome = String(formData.get("nome") ?? "").trim();
+  const caminho = caminhoSeguro(formData.get("caminho"));
+
+  if (!nome) return { status: "error", message: "Informe o nome do artista." };
+
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { status: "error", message: "Sessão expirada. Entre novamente." };
+  if (user.app_metadata?.role !== "admin") {
+    return { status: "error", message: "Só o admin pode cadastrar artistas." };
+  }
+
+  const slug = gerarSlug(nome);
+  if (!slug) return { status: "error", message: "Informe um nome com pelo menos uma letra ou número." };
+
+  const { error } = await supabase.from("artistas").insert({ nome, slug });
+  if (error) {
+    // Conflito de slug (artista com nome igual/parecido já cadastrado) ou RLS
+    // bloqueando — sem detalhar a causa exata para não vazar erro de banco.
+    return { status: "error", message: "Não foi possível cadastrar o artista. Verifique se já existe um com esse nome." };
+  }
+
+  revalidatePath(caminho);
+  return { status: "ok", message: "Artista cadastrado." };
+}
+
 export async function criarProjeto(_estado: EstadoAcao, formData: FormData): Promise<EstadoAcao> {
   const nome = String(formData.get("nome") ?? "").trim();
   const tipoBruto = String(formData.get("tipo") ?? "single");

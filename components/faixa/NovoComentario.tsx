@@ -85,13 +85,15 @@ export function NovoComentario({
       </div>
 
       <div className="flex flex-col gap-3">
-        <Textarea
-          value={texto}
-          onChange={(e) => setTexto(e.target.value)}
-          required
-          rows={3}
-          placeholder="O que precisa mudar neste ponto?"
-        />
+        <Field label="Comentário">
+          <Textarea
+            value={texto}
+            onChange={(e) => setTexto(e.target.value)}
+            required
+            rows={3}
+            placeholder="O que precisa mudar neste ponto?"
+          />
+        </Field>
         <div className="flex flex-wrap gap-3">
           <Field label="Categoria">
             <Select value={categoria} onChange={(e) => setCategoria(e.target.value as CategoriaComentario)}>

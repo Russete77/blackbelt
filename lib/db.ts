@@ -460,6 +460,35 @@ export async function getSignedCoverUrl(capaPath: string, expiresIn = 3600): Pro
   return data.signedUrl;
 }
 
+// Versão batch de getSignedCoverUrl: assina todos os caminhos numa chamada só
+// (análogo ao createSignedUrls de getVersoesDaFaixa) — evita 1 round-trip de
+// Storage por artista/projeto na Home. URLs http(s) completas (dados
+// legados/seed) passam direto, sem consumir a chamada em lote.
+export async function getSignedCoverUrls(
+  paths: string[],
+): Promise<Map<string, string | null>> {
+  const urlPorPath = new Map<string, string | null>();
+  const aAssinar: string[] = [];
+  for (const path of paths) {
+    if (/^https?:\/\//i.test(path)) {
+      urlPorPath.set(path, path);
+    } else {
+      aAssinar.push(path);
+    }
+  }
+  if (aAssinar.length > 0) {
+    const supabase = await createClient();
+    const { data, error } = await supabase.storage.from("covers").createSignedUrls(aAssinar, 3600);
+    if (error) {
+      console.error("getSignedCoverUrls:", error.message);
+    }
+    for (const item of data ?? []) {
+      if (item.path) urlPorPath.set(item.path, item.error ? null : item.signedUrl);
+    }
+  }
+  return urlPorPath;
+}
+
 export async function getVersoesDaFaixa(faixaId: string): Promise<VersaoFaixa[]> {
   const supabase = await createClient();
   const { data, error } = await supabase

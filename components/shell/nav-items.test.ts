@@ -4,12 +4,12 @@ import { navItems, isNavAtivo, navItensMobile } from "./nav-items";
 describe("navItems", () => {
   it("tem os 7 módulos", () => {
     expect(navItems.map((n) => n.label)).toEqual([
-      "Home", "Artistas", "Estúdio", "Analytics", "Previsão", "Shows", "Registro",
+      "Home", "Artistas", "Estúdio", "Números do selo", "Previsão", "Shows", "Registro",
     ]);
   });
-  it("Home, Artistas, Estúdio, Analytics, Previsão, Shows e Registro estão disponíveis nesta fatia", () => {
+  it("Home, Artistas, Estúdio, Números do selo, Previsão, Shows e Registro estão disponíveis nesta fatia", () => {
     const disponiveis = navItems.filter((n) => n.disponivel).map((n) => n.label);
-    expect(disponiveis).toEqual(["Home", "Artistas", "Estúdio", "Analytics", "Previsão", "Shows", "Registro"]);
+    expect(disponiveis).toEqual(["Home", "Artistas", "Estúdio", "Números do selo", "Previsão", "Shows", "Registro"]);
   });
 });
 
@@ -30,13 +30,14 @@ describe("isNavAtivo", () => {
 });
 
 describe("navItensMobile", () => {
-  it("5 slots, disponíveis primeiro", () => {
+  it("mostra os 7 módulos, disponíveis primeiro", () => {
     const itens = navItensMobile();
-    expect(itens).toHaveLength(5);
-    // Com Analytics e Previsão habilitados, os 5 primeiros módulos
-    // disponíveis já preenchem os 5 slots inteiros — nenhum "Em breve" sobra
-    // na barra mobile, e Shows/Registro (6º/7º) ficam de fora dela.
+    expect(itens).toHaveLength(7);
+    // Todos os 7 módulos aparecem na barra mobile (com rolagem horizontal),
+    // nenhum fica escondido — Shows e Registro (6º/7º) não são mais cortados.
     expect(itens.every((i) => i.disponivel)).toBe(true);
-    expect(itens.map((i) => i.label)).toEqual(["Home", "Artistas", "Estúdio", "Analytics", "Previsão"]);
+    expect(itens.map((i) => i.label)).toEqual([
+      "Home", "Artistas", "Estúdio", "Números do selo", "Previsão", "Shows", "Registro",
+    ]);
   });
 });

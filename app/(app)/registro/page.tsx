@@ -22,7 +22,7 @@ export default async function RegistroPage({
         <div>
           <h1 className="mb-1 font-display text-2xl uppercase tracking-tight md:text-3xl">Registro</h1>
           <p className="text-sm text-muted">
-            Registro & Direitos — obra, fonograma e videograma por faixa.
+            Registro & Direitos — obra (composição), fonograma (gravação) e videograma (clipe) por faixa.
           </p>
         </div>
         <div className="w-full min-w-48 sm:w-56">

@@ -3,6 +3,7 @@
 // embed do YouTube (quando video_url já foi normalizado para um id válido —
 // ver normalizarVideoUrl em actions.ts) e ações (editar em modal, apagar
 // para admin).
+import Link from "next/link";
 import { Badge } from "@/components/ui/Badge";
 import { Card, CardBody } from "@/components/ui/Card";
 import { formatarDataPura } from "@/lib/datas";
@@ -26,7 +27,7 @@ export function ClipeCard({
   podeExcluir: boolean;
   caminho: string;
 }) {
-  const faixaVinculada = faixas.find((f) => f.id === clipe.faixaId)?.titulo;
+  const faixaVinculada = faixas.find((f) => f.id === clipe.faixaId);
   const videoId = clipe.videoUrl && YOUTUBE_ID_RE.test(clipe.videoUrl) ? clipe.videoUrl : null;
 
   return (
@@ -36,7 +37,14 @@ export function ClipeCard({
           <div className="min-w-0">
             <h3 className="truncate font-display text-base uppercase tracking-tight">{clipe.titulo}</h3>
             <p className="text-xs text-muted">
-              {faixaVinculada && `Faixa: ${faixaVinculada}`}
+              {faixaVinculada && (
+                <>
+                  Faixa:{" "}
+                  <Link href={`/faixa/${faixaVinculada.id}`} className="text-accent hover:underline">
+                    {faixaVinculada.titulo}
+                  </Link>
+                </>
+              )}
               {clipe.diretor && `${faixaVinculada ? " · " : ""}Dir.: ${clipe.diretor}`}
             </p>
           </div>

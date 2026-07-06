@@ -44,8 +44,7 @@ export function ConectarCanalYoutube({
 
         {!configurado ? (
           <p className="text-xs text-muted">
-            Configure <code className="rounded bg-surface2 px-1 py-0.5 font-mono">YOUTUBE_API_KEY</code> no ambiente
-            para conectar um canal.
+            A conexão com o YouTube ainda não está disponível. Fale com o suporte para habilitar essa integração.
           </p>
         ) : (
           <>

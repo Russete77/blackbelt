@@ -29,9 +29,15 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <PlayerProvider>
       <div className="flex min-h-screen bg-bg text-fg">
+        <a
+          href="#conteudo"
+          className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-md focus:bg-accent focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-bg"
+        >
+          Pular para o conteúdo
+        </a>
         <Sidebar usuario={usuario} />
         {/* pb-40 = espaço para o player fixo (mobile) + bottom nav; min-w-0 evita overflow horizontal do flex */}
-        <main role="main" className="min-w-0 flex-1 pb-40 md:pb-24">
+        <main id="conteudo" tabIndex={-1} role="main" className="min-w-0 flex-1 pb-40 md:pb-24 focus:outline-none">
           {usuario && (
             <header className="sticky top-0 z-30 flex items-center justify-end border-b border-line bg-bg/95 px-4 py-2 backdrop-blur md:px-6">
               <SinoNotificacoes notificacoesIniciais={notificacoesIniciais} naoLidasIniciais={naoLidasIniciais} />

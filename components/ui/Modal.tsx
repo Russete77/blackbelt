@@ -17,24 +17,38 @@ const SELETOR_FOCAVEL =
   'a[href], button:not([disabled]), textarea, input:not([disabled]), select, [tabindex]:not([tabindex="-1"])';
 
 export function Modal({
-  open, onClose, title, children, className,
+  open, onClose, title, children, className, pedirConfirmacaoAoFechar,
 }: {
   open: boolean;
   onClose: () => void;
   title: string;
   children: React.ReactNode;
   className?: string;
+  /** Se true, pede confirmação antes de fechar via Esc/backdrop (uso: formulários com alterações não salvas). */
+  pedirConfirmacaoAoFechar?: boolean;
 }) {
   const painelRef = useRef<HTMLDivElement>(null);
+  const conteudoRef = useRef<HTMLDivElement>(null);
   const focoAnteriorRef = useRef<HTMLElement | null>(null);
   const tituloId = useId();
+
+  function fecharComConfirmacao() {
+    if (pedirConfirmacaoAoFechar && !window.confirm("Descartar as alterações não salvas?")) {
+      return;
+    }
+    onClose();
+  }
 
   useEffect(() => {
     if (!open) return;
 
     focoAnteriorRef.current = document.activeElement as HTMLElement | null;
-    const primeiro = painelRef.current?.querySelector<HTMLElement>(SELETOR_FOCAVEL);
-    primeiro?.focus();
+    const primeiro = conteudoRef.current?.querySelector<HTMLElement>(SELETOR_FOCAVEL);
+    if (primeiro) {
+      primeiro.focus();
+    } else {
+      painelRef.current?.focus();
+    }
 
     const overflowAnterior = document.body.style.overflow;
     document.body.style.overflow = "hidden";
@@ -42,7 +56,7 @@ export function Modal({
     function aoTeclar(e: KeyboardEvent) {
       if (e.key === "Escape") {
         e.stopPropagation();
-        onClose();
+        fecharComConfirmacao();
         return;
       }
       if (e.key !== "Tab") return;
@@ -65,7 +79,7 @@ export function Modal({
       document.body.style.overflow = overflowAnterior;
       focoAnteriorRef.current?.focus();
     };
-  }, [open, onClose]);
+  }, [open, onClose, pedirConfirmacaoAoFechar]);
 
   // `open` só vira true a partir de um clique no cliente (todo consumidor
   // parte de useState(false)) — nunca durante o SSR, então não há
@@ -77,7 +91,7 @@ export function Modal({
     <div className="fixed inset-0 z-50 flex items-end justify-center md:items-center md:p-4">
       <div
         aria-hidden
-        onClick={onClose}
+        onClick={fecharComConfirmacao}
         className="absolute inset-0 animate-fade-in bg-black/60 backdrop-blur-sm"
       />
       <div
@@ -85,6 +99,7 @@ export function Modal({
         role="dialog"
         aria-modal="true"
         aria-labelledby={tituloId}
+        tabIndex={-1}
         className={cn(
           "relative z-10 flex max-h-[85vh] w-full flex-col overflow-hidden border border-line bg-surface shadow-lg shadow-black/40",
           "animate-sheet-up rounded-t-2xl md:max-w-lg md:animate-fade-in-up md:rounded-2xl",
@@ -102,7 +117,7 @@ export function Modal({
             <X className="h-4 w-4" aria-hidden />
           </button>
         </div>
-        <div className="overflow-y-auto px-4 py-4">{children}</div>
+        <div ref={conteudoRef} className="overflow-y-auto px-4 py-4">{children}</div>
       </div>
     </div>,
     document.body,

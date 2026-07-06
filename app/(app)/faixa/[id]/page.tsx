@@ -12,19 +12,27 @@ export default async function FaixaPage({ params }: { params: Promise<{ id: stri
   const faixa = await getFaixa(id);
   if (!faixa) return notFound();
 
+  const ehFootprint = faixa.origem === "footprint";
+
+  // Buscas independentes disparadas juntas logo após ter a faixa — reduz a
+  // latência total (antes eram sequenciais). Métricas por plataforma só
+  // fazem sentido pra footprint; nos demais casos resolve pra [] sem query.
+  const [capaAssinada, splits, artistas, metricasPorPlataforma] = await Promise.all([
+    faixa.capaUrl ? getSignedCoverUrl(faixa.capaUrl) : Promise.resolve(null),
+    getSplitsDaFaixa(faixa.id),
+    getArtistas(),
+    ehFootprint ? getMetricasDaFaixaPorPlataforma(faixa.id) : Promise.resolve([]),
+  ]);
+
   // Resolve a capa numa CÓPIA — getFaixa usa React.cache; mutar o objeto
   // cacheado vazaria a signed URL para outros consumidores do request.
-  const capaAssinada = faixa.capaUrl ? (await getSignedCoverUrl(faixa.capaUrl)) ?? undefined : undefined;
-  const faixaExibida = { ...faixa, capaUrl: capaAssinada };
-
-  const [splits, artistas] = await Promise.all([getSplitsDaFaixa(faixa.id), getArtistas()]);
+  const faixaExibida = { ...faixa, capaUrl: capaAssinada ?? undefined };
   const artistasResumo = artistas.map((a) => ({ id: a.id, nome: a.nome }));
 
   // Footprint = lançamento externo monitorado (feat em canal/selo de
   // terceiro): sem UI de produção, só players + números + split — ver
   // components/faixa/FootprintView.tsx. Estúdio segue o fluxo normal abaixo.
-  if (faixa.origem === "footprint") {
-    const metricasPorPlataforma = await getMetricasDaFaixaPorPlataforma(faixa.id);
+  if (ehFootprint) {
     return (
       <FootprintView
         faixa={faixaExibida}

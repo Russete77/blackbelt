@@ -54,6 +54,7 @@ function ItemComentario({ comentario: c, isAdmin }: { comentario: Comentario; is
   const { seek, loopComentarioId, alternarLoopComentario } = usePlayer();
   const caminho = usePathname();
   const [editando, setEditando] = useState(false);
+  const [confirmandoExclusao, setConfirmandoExclusao] = useState(false);
   const loopAtivo = loopComentarioId === c.id;
 
   // Envolve a Server Action para fechar o form de edição no sucesso.
@@ -132,22 +133,45 @@ function ItemComentario({ comentario: c, isAdmin }: { comentario: Comentario; is
             </button>
           </form>
           {isAdmin && (
-            <form action={excluirAction} className="contents">
-              <input type="hidden" name="id" value={c.id} />
-              <input type="hidden" name="caminho" value={caminho} />
-              <button
-                type="submit"
-                disabled={excluindoPendente}
-                aria-label="Apagar comentário"
-                title="Apagar"
-                className="rounded-md p-2 text-muted transition-colors duration-200 hover:bg-surface2 hover:text-danger disabled:opacity-50"
-              >
-                <Trash2 className="h-3.5 w-3.5" aria-hidden />
-              </button>
-            </form>
+            <button
+              type="button"
+              onClick={() => setConfirmandoExclusao(true)}
+              aria-label="Apagar comentário"
+              title="Apagar"
+              className="ml-1 min-h-9 min-w-9 rounded-md border-l border-line p-2.5 pl-2.5 text-muted transition-colors duration-200 hover:bg-surface2 hover:text-danger"
+            >
+              <Trash2 className="h-3.5 w-3.5" aria-hidden />
+            </button>
           )}
         </span>
       </div>
+
+      {confirmandoExclusao && (
+        <form
+          action={excluirAction}
+          className="mb-2 flex flex-wrap items-center gap-2 rounded-md border border-danger/30 bg-danger/10 p-2"
+        >
+          <input type="hidden" name="id" value={c.id} />
+          <input type="hidden" name="caminho" value={caminho} />
+          <span className="text-xs text-fg">Apagar este comentário?</span>
+          <Button
+            type="submit"
+            size="sm"
+            disabled={excluindoPendente}
+            className="bg-danger text-fg hover:brightness-110"
+          >
+            {excluindoPendente ? "Apagando..." : "Sim, apagar"}
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => setConfirmandoExclusao(false)}
+          >
+            Cancelar
+          </Button>
+        </form>
+      )}
 
       {editando ? (
         <form action={editarAction} className="mt-2 flex flex-col gap-3">

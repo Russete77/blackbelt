@@ -4,7 +4,7 @@
 // AppShell) e gerencia lida/não-lida localmente (otimista), disparando as
 // Server Actions em segundo plano — sem depender de um refresh de página
 // para o usuário ver o efeito na hora.
-import { useState, useTransition } from "react";
+import { useEffect, useId, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { Bell, Check } from "lucide-react";
 import { cn } from "@/lib/cn";
@@ -12,38 +12,97 @@ import { formatarTempoRelativo } from "@/lib/tempo";
 import { marcarLida, marcarTodasLidas } from "@/app/(app)/notificacoes/actions";
 import type { Notificacao } from "@/types/notificacoes";
 
+const SELETOR_FOCAVEL =
+  'a[href], button:not([disabled]), textarea, input:not([disabled]), select, [tabindex]:not([tabindex="-1"])';
+
 export function SinoNotificacoes({
   notificacoesIniciais, naoLidasIniciais,
 }: { notificacoesIniciais: Notificacao[]; naoLidasIniciais: number }) {
   const [aberto, setAberto] = useState(false);
   const [notificacoes, setNotificacoes] = useState(notificacoesIniciais);
   const [naoLidas, setNaoLidas] = useState(naoLidasIniciais);
+  const [erro, setErro] = useState<string | null>(null);
   const [, startTransition] = useTransition();
+  const botaoRef = useRef<HTMLButtonElement>(null);
+  const painelRef = useRef<HTMLDivElement>(null);
+  const tituloId = useId();
+
+  // Fecha com Esc, prende o foco (Tab) dentro do painel enquanto aberto e
+  // devolve o foco pro sino ao fechar — mesmo comportamento do Modal.tsx.
+  useEffect(() => {
+    if (!aberto) return;
+
+    const primeiro = painelRef.current?.querySelector<HTMLElement>(SELETOR_FOCAVEL);
+    primeiro?.focus();
+
+    function aoTeclar(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        e.stopPropagation();
+        setAberto(false);
+        return;
+      }
+      if (e.key !== "Tab") return;
+      const focaveis = painelRef.current?.querySelectorAll<HTMLElement>(SELETOR_FOCAVEL);
+      if (!focaveis || focaveis.length === 0) return;
+      const primeiroEl = focaveis[0];
+      const ultimoEl = focaveis[focaveis.length - 1];
+      if (e.shiftKey && document.activeElement === primeiroEl) {
+        e.preventDefault();
+        ultimoEl.focus();
+      } else if (!e.shiftKey && document.activeElement === ultimoEl) {
+        e.preventDefault();
+        primeiroEl.focus();
+      }
+    }
+
+    document.addEventListener("keydown", aoTeclar);
+    return () => {
+      document.removeEventListener("keydown", aoTeclar);
+      botaoRef.current?.focus();
+    };
+  }, [aberto]);
 
   function aoAbrirNotificacao(id: string, lida: boolean) {
     if (lida) return;
+    const notificacoesAnteriores = notificacoes;
+    const naoLidasAnteriores = naoLidas;
     setNotificacoes((atual) => atual.map((n) => (n.id === id ? { ...n, lida: true } : n)));
     setNaoLidas((atual) => Math.max(0, atual - 1));
     startTransition(() => {
-      void marcarLida(id);
+      marcarLida(id)
+        .then(() => setErro(null))
+        .catch(() => {
+          setNotificacoes(notificacoesAnteriores);
+          setNaoLidas(naoLidasAnteriores);
+          setErro("Não foi possível marcar como lida. Tente de novo.");
+        });
     });
   }
 
   function aoMarcarTodas() {
     if (naoLidas === 0) return;
+    const notificacoesAnteriores = notificacoes;
+    const naoLidasAnteriores = naoLidas;
     setNotificacoes((atual) => atual.map((n) => ({ ...n, lida: true })));
     setNaoLidas(0);
     startTransition(() => {
-      void marcarTodasLidas();
+      marcarTodasLidas()
+        .then(() => setErro(null))
+        .catch(() => {
+          setNotificacoes(notificacoesAnteriores);
+          setNaoLidas(naoLidasAnteriores);
+          setErro("Não foi possível marcar todas como lidas. Tente de novo.");
+        });
     });
   }
 
   return (
     <div className="relative">
       <button
+        ref={botaoRef}
         type="button"
         onClick={() => setAberto((v) => !v)}
-        aria-label="Notificações"
+        aria-label={naoLidas > 0 ? `Notificações, ${naoLidas} não lida${naoLidas > 1 ? "s" : ""}` : "Notificações"}
         aria-expanded={aberto}
         className="relative grid h-9 w-9 place-items-center rounded-md text-muted transition-colors duration-200 hover:bg-surface2 hover:text-fg"
       >
@@ -62,9 +121,15 @@ export function SinoNotificacoes({
         <>
           {/* Camada de captura para fechar ao clicar fora — sem lib de modal. */}
           <div className="fixed inset-0 z-40" aria-hidden onClick={() => setAberto(false)} />
-          <div className="absolute right-0 z-50 mt-2 w-80 max-w-[calc(100vw-2rem)] animate-fade-in-up rounded-lg border border-line bg-surface shadow-xl shadow-black/30">
+          <div
+            ref={painelRef}
+            role="dialog"
+            aria-modal="false"
+            aria-labelledby={tituloId}
+            className="absolute right-0 z-50 mt-2 w-80 max-w-[calc(100vw-2rem)] animate-fade-in-up rounded-lg border border-line bg-surface shadow-xl shadow-black/30"
+          >
             <div className="flex items-center justify-between border-b border-line px-4 py-3">
-              <h3 className="text-sm font-semibold">Notificações</h3>
+              <h3 id={tituloId} className="text-sm font-semibold">Notificações</h3>
               {naoLidas > 0 && (
                 <button
                   type="button"
@@ -76,6 +141,12 @@ export function SinoNotificacoes({
                 </button>
               )}
             </div>
+
+            {erro && (
+              <p role="alert" className="border-b border-line bg-danger/10 px-4 py-2 text-xs text-danger">
+                {erro}
+              </p>
+            )}
 
             <div className="max-h-96 overflow-y-auto">
               {notificacoes.length === 0 ? (
@@ -110,7 +181,7 @@ function ItemNotificacao({ notificacao, onAbrir }: { notificacao: Notificacao; o
         {!notificacao.lida && <span aria-hidden className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-accent" />}
       </div>
       <p className="text-xs text-muted">{notificacao.mensagem}</p>
-      <p className="text-[11px] text-muted/70">{formatarTempoRelativo(notificacao.criadoEm)}</p>
+      <p className="text-[11px] text-muted">{formatarTempoRelativo(notificacao.criadoEm)}</p>
     </div>
   );
 

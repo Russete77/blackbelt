@@ -145,7 +145,12 @@ export function SplitsFaixa({
             <Plus className="h-4 w-4" aria-hidden />
             Adicionar participante
           </Button>
-          <Button type="submit" size="sm" disabled={pendente}>
+          <Button
+            type="submit"
+            size="sm"
+            disabled={pendente || !somaOk}
+            title={!somaOk ? "A soma dos percentuais precisa fechar 100% para salvar" : undefined}
+          >
             {pendente ? "Salvando..." : "Salvar splits"}
           </Button>
         </div>
