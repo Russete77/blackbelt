@@ -1,49 +1,83 @@
 "use client";
-// Botão "Separar stems": dispara a Server Action separarStems para a versão
-// atual, mostra o estado de "separando" (é lento — Demucs em CPU leva minutos)
-// e recarrega a página no sucesso para exibir os novos stems (beat/voz) como
-// versões tocáveis. Ver app/(app)/faixa/[id]/actions.ts.
-import { useState, useTransition } from "react";
+// Botão "Separar stems": dispara a Server Action (assíncrona) e, enquanto o
+// worker processa em segundo plano, faz polling de statusStems a cada 15s —
+// mostrando "Separando…" e trocando sozinho para "pronto" (com router.refresh
+// pra exibir os novos stems como versões) ou "erro". Ver
+// app/(app)/faixa/[id]/actions.ts.
+import { useState, useEffect, useRef, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Scissors, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
-import { separarStems } from "@/app/(app)/faixa/[id]/actions";
+import { separarStems, statusStems } from "@/app/(app)/faixa/[id]/actions";
+
+const INTERVALO_MS = 15_000;
+const MAX_TENTATIVAS = 60; // ~15 min de acompanhamento antes de soltar
 
 export function SepararStems({ versaoId, rotulo }: { versaoId: string; rotulo: string }) {
   const router = useRouter();
   const [pendente, iniciar] = useTransition();
-  const [msg, setMsg] = useState<{ tipo: "ok" | "error"; texto: string } | null>(null);
+  const [processando, setProcessando] = useState(false);
+  const [msg, setMsg] = useState<{ tipo: "ok" | "error" | "info"; texto: string } | null>(null);
+  const tentativas = useRef(0);
+
+  // Enquanto "processando", pergunta o status periodicamente até pronto/erro/teto.
+  useEffect(() => {
+    if (!processando) return;
+    const id = setInterval(async () => {
+      tentativas.current += 1;
+      const r = await statusStems(versaoId);
+      if (r.status === "pronto") {
+        setProcessando(false);
+        setMsg({ tipo: "ok", texto: "Stems prontos! Beat e voz já tocam abaixo." });
+        router.refresh();
+      } else if (r.status === "erro") {
+        setProcessando(false);
+        setMsg({ tipo: "error", texto: `Falhou: ${r.message ?? "erro no worker."}` });
+      } else if (tentativas.current >= MAX_TENTATIVAS) {
+        setProcessando(false);
+        setMsg({ tipo: "info", texto: "Ainda processando — atualize a página em alguns minutos." });
+      }
+    }, INTERVALO_MS);
+    return () => clearInterval(id);
+  }, [processando, versaoId, router]);
 
   function rodar() {
     setMsg(null);
+    tentativas.current = 0;
     iniciar(async () => {
-      const resultado = await separarStems(versaoId);
-      setMsg({ tipo: resultado.status === "error" ? "error" : "ok", texto: resultado.message ?? "" });
-      if (resultado.status === "ok") router.refresh();
+      const r = await separarStems(versaoId);
+      if (r.status === "ok" && r.processando) {
+        setProcessando(true);
+        setMsg({ tipo: "info", texto: r.message ?? "" });
+      } else {
+        setMsg({ tipo: r.status === "error" ? "error" : "ok", texto: r.message ?? "" });
+        if (r.status === "ok") router.refresh();
+      }
     });
   }
 
+  const ativo = pendente || processando;
   return (
     <div className="flex flex-col items-end gap-1">
       <Button
         variant="outline"
         size="sm"
         onClick={rodar}
-        disabled={pendente}
+        disabled={ativo}
         title={`Separar beat e voz de "${rotulo}"`}
       >
-        {pendente ? (
+        {ativo ? (
           <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
         ) : (
           <Scissors className="h-4 w-4" aria-hidden />
         )}
-        {pendente ? "Separando..." : "Separar stems"}
+        {processando ? "Separando..." : pendente ? "Iniciando..." : "Separar stems"}
       </Button>
-      {pendente && (
-        <span className="text-[11px] text-muted">Beat/voz em CPU — leva alguns minutos, pode aguardar.</span>
+      {processando && (
+        <span className="text-[11px] text-muted">Em CPU leva alguns minutos — pode deixar a página aberta.</span>
       )}
       {msg && (
-        <span className={`text-right text-xs ${msg.tipo === "ok" ? "text-success" : "text-danger"}`}>
+        <span className={`text-right text-xs ${msg.tipo === "ok" ? "text-success" : msg.tipo === "error" ? "text-danger" : "text-muted"}`}>
           {msg.texto}
         </span>
       )}

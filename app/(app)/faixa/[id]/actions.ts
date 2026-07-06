@@ -1,24 +1,28 @@
 "use server";
 // Separação de stems (beat/voz) de uma versão via worker Demucs no Railway.
-// Fluxo: gera signed URL do áudio da versão → POST no worker (Bearer secret) →
-// o worker separa em CPU, sobe os stems pro bucket `audio` e devolve os caminhos
-// → registramos cada stem como uma nova `versao` (tipo beat/vocal), então eles
-// aparecem no player da faixa como qualquer outra versão. Sessão do usuário
-// (RLS aplica) — o service-role fica só no worker, nunca aqui.
-import { revalidatePath } from "next/cache";
+// ASSÍNCRONO: separarStems só DISPARA o worker (que responde na hora) e o worker
+// processa em segundo plano, sobe os stems pro bucket `audio` e registra cada um
+// como uma `versao` (tipo beat/vocal) — eles aparecem no player como qualquer
+// outra versão. statusStems faz o polling: primeiro checa o banco (fonte da
+// verdade: os stems já viraram versões?), senão pergunta o status ao worker.
+// Sessão do usuário (RLS aplica) — o service-role fica só no worker.
 import { createClient } from "@/lib/supabase/server";
 import { getSignedAudioUrl } from "@/lib/db";
 
 const WORKER_URL = process.env.DEMUCS_WORKER_URL;
 const WORKER_SECRET = process.env.DEMUCS_WORKER_SECRET;
-// Separar em CPU leva minutos; damos folga tanto na signed URL (worker precisa
-// baixar) quanto no fetch. 280s fica abaixo do teto de 300s de função serverless.
-const SIGNED_TTL = 1800;
-const FETCH_TIMEOUT_MS = 280_000;
+// TTL folgado: o worker pode começar a baixar o áudio minutos depois do disparo.
+const SIGNED_TTL = 3600;
 
 export interface EstadoStems {
   status: "idle" | "ok" | "error";
   message?: string;
+  // true quando a separação foi disparada e está rodando no worker (UI faz poll).
+  processando?: boolean;
+}
+
+function prefixoStems(faixaId: string, versaoId: string): string {
+  return `${faixaId}/stems/${versaoId}`;
 }
 
 export async function separarStems(versaoId: string): Promise<EstadoStems> {
@@ -31,7 +35,6 @@ export async function separarStems(versaoId: string): Promise<EstadoStems> {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { status: "error", message: "Sessão expirada. Entre novamente." };
 
-  // Versão de origem — RLS garante que o usuário pode vê-la.
   const { data: versao, error: versaoError } = await supabase
     .from("versoes")
     .select("id, faixa_id, arquivo_path")
@@ -40,82 +43,93 @@ export async function separarStems(versaoId: string): Promise<EstadoStems> {
   if (versaoError || !versao) return { status: "error", message: "Versão não encontrada." };
   if (!versao.arquivo_path) return { status: "error", message: "Esta versão não tem áudio para separar." };
 
-  // Já separado antes? Evita rodar o worker (caro) e duplicar versões. Os stems
-  // ficam sob "<faixa_id>/stems/<versao_id>/…" — checamos por esse prefixo.
-  const prefixoDestino = `${versao.faixa_id}/stems/${versao.id}`;
+  // Já separado? Evita rodar o worker de novo e duplicar versões.
+  const prefixoDestino = prefixoStems(versao.faixa_id, versao.id);
   const { data: jaExistem } = await supabase
     .from("versoes")
-    .select("id, arquivo_path")
+    .select("id")
     .eq("faixa_id", versao.faixa_id)
     .like("arquivo_path", `${prefixoDestino}/%`);
-  const pathsExistentes = new Set((jaExistem ?? []).map((v) => v.arquivo_path));
-  if (pathsExistentes.size >= 2) {
+  if ((jaExistem?.length ?? 0) >= 2) {
     return { status: "ok", message: "Os stems desta versão já foram separados — veja abaixo." };
   }
 
   const audioUrl = await getSignedAudioUrl(versao.arquivo_path, SIGNED_TTL);
   if (!audioUrl) return { status: "error", message: "Não foi possível gerar o link do áudio." };
 
-  // Chamada síncrona ao worker (separação em CPU leva alguns minutos).
-  let resposta: Response;
+  // DISPARA e não espera terminar — o worker responde 202 na hora e processa
+  // em background (grava as versões dos stems ele mesmo, via service role).
   try {
-    resposta = await fetch(`${WORKER_URL.replace(/\/$/, "")}/separate`, {
+    const resposta = await fetch(`${WORKER_URL.replace(/\/$/, "")}/separate`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${WORKER_SECRET}`,
-      },
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${WORKER_SECRET}` },
       body: JSON.stringify({
         audio_url: audioUrl,
+        faixa_id: versao.faixa_id,
         versao_id: versao.id,
+        user_id: user.id,
         modo: "beat_voz",
         prefixo_destino: prefixoDestino,
       }),
-      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+      signal: AbortSignal.timeout(30_000),
     });
+    if (!resposta.ok) {
+      const corpo = (await resposta.json().catch(() => null)) as { detail?: string } | null;
+      const motivo = corpo?.detail ? `: ${String(corpo.detail).slice(0, 200)}` : "";
+      return { status: "error", message: `Não consegui iniciar a separação (código ${resposta.status})${motivo}` };
+    }
   } catch {
-    return {
-      status: "error",
-      message: "O worker de stems não respondeu a tempo. Faixas muito longas podem estourar o limite — tente uma versão mais curta.",
-    };
+    return { status: "error", message: "O worker de stems não respondeu. Confira se ele está no ar." };
   }
 
-  if (!resposta.ok) {
-    // Repassa o motivo real que o worker mandou (detail) — encurtado — em vez
-    // de só o código, pra facilitar o diagnóstico.
-    const corpo = (await resposta.json().catch(() => null)) as { detail?: string } | null;
-    const motivo = corpo?.detail ? `: ${String(corpo.detail).slice(0, 300)}` : "";
-    return { status: "error", message: `Falha na separação (código ${resposta.status})${motivo}` };
+  return {
+    status: "ok",
+    processando: true,
+    message: "Separação iniciada — leva alguns minutos. Pode deixar a página aberta.",
+  };
+}
+
+export type StatusStems = { status: "processando" | "pronto" | "erro" | "desconhecido"; message?: string };
+
+// Polling: primeiro o banco (se os stems já viraram versões, acabou), senão
+// pergunta ao worker (que sabe se ainda processa ou falhou, com o motivo).
+export async function statusStems(versaoId: string): Promise<StatusStems> {
+  if (!versaoId) return { status: "desconhecido" };
+
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { status: "desconhecido", message: "Sessão expirada." };
+
+  const { data: versao } = await supabase
+    .from("versoes")
+    .select("faixa_id")
+    .eq("id", versaoId)
+    .maybeSingle();
+  if (versao) {
+    const prefixo = prefixoStems(versao.faixa_id, versaoId);
+    const { data: stems } = await supabase
+      .from("versoes")
+      .select("id")
+      .eq("faixa_id", versao.faixa_id)
+      .like("arquivo_path", `${prefixo}/%`);
+    if ((stems?.length ?? 0) >= 2) return { status: "pronto" };
   }
 
-  const dados = (await resposta.json().catch(() => null)) as
-    | { ok?: boolean; stems?: Record<string, string> }
-    | null;
-  if (!dados?.ok || !dados.stems) {
-    return { status: "error", message: "O worker não devolveu os stems." };
-  }
-
-  // Registra cada stem como uma versão (tipo beat/vocal) usando o caminho que
-  // o worker gravou de fato — não reconstrói o path. Só insere o que ainda não
-  // existe (retrocompatível com re-execução).
-  const mapaTipo: Record<string, "beat" | "vocal"> = { beat: "beat", vocal: "vocal" };
-  const novas = Object.entries(dados.stems)
-    .filter(([rotulo, path]) => mapaTipo[rotulo] && !pathsExistentes.has(path))
-    .map(([rotulo, path]) => ({
-      faixa_id: versao.faixa_id,
-      tipo: mapaTipo[rotulo],
-      rotulo: rotulo === "vocal" ? "Vocal (stem)" : "Beat (stem)",
-      arquivo_path: path,
-      enviado_por: user.id,
-    }));
-
-  if (novas.length > 0) {
-    const { error: insertError } = await supabase.from("versoes").insert(novas);
-    if (insertError) {
-      return { status: "error", message: "Stems gerados, mas falhou o registro das versões." };
+  if (WORKER_URL && WORKER_SECRET) {
+    try {
+      const r = await fetch(`${WORKER_URL.replace(/\/$/, "")}/status/${versaoId}`, {
+        headers: { Authorization: `Bearer ${WORKER_SECRET}` },
+        signal: AbortSignal.timeout(15_000),
+      });
+      if (r.ok) {
+        const d = (await r.json().catch(() => null)) as { status?: string; detail?: string } | null;
+        if (d?.status === "erro") return { status: "erro", message: d.detail ? String(d.detail).slice(0, 300) : undefined };
+        if (d?.status === "pronto") return { status: "pronto" };
+        if (d?.status === "processando") return { status: "processando" };
+      }
+    } catch {
+      // worker fora do ar / reiniciado — deixa o polling continuar como processando
     }
   }
-
-  revalidatePath(`/faixa/${versao.faixa_id}`);
-  return { status: "ok", message: `Stems prontos: ${novas.length || "0"} nova(s) versão(ões). Beat e voz já tocam abaixo.` };
+  return { status: "processando" };
 }
