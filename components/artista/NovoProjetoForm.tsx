@@ -1,13 +1,16 @@
 "use client";
-// Botão + formulário inline para criar um projeto vinculado ao artista.
-// Submete via Server Action (criarProjeto) — a escrita passa pelo RLS.
+// Botão "Novo projeto" + formulário dentro do Modal reutilizável (mesmo padrão
+// de NovaDemandaForm/ClipeFormModal — botões que abrem formulário viram modal,
+// não painel inline). Submete via Server Action (criarProjeto), que passa pelo
+// RLS. Ver app/(app)/actions.ts#criarProjeto.
 import { useActionState, useState } from "react";
 import { usePathname } from "next/navigation";
-import { Plus, X } from "lucide-react";
+import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Field } from "@/components/ui/Field";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
+import { Modal } from "@/components/ui/Modal";
 import { criarProjeto, type EstadoAcao } from "@/app/(app)/actions";
 import { labelTipoProjeto } from "@/lib/labels";
 import type { TipoProjeto } from "@/types/domain";
@@ -18,7 +21,7 @@ const TIPOS: TipoProjeto[] = ["single", "ep", "album", "feat"];
 export function NovoProjetoForm({ artistaId }: { artistaId: string }) {
   const caminho = usePathname();
   const [aberto, setAberto] = useState(false);
-  // Envolve a Server Action para fechar o form no sucesso (sem useEffect).
+  // Envolve a Server Action para fechar o modal no sucesso (sem useEffect).
   const [estado, formAction, pendente] = useActionState(
     async (prev: EstadoAcao, formData: FormData) => {
       const resultado = await criarProjeto(prev, formData);
@@ -28,53 +31,38 @@ export function NovoProjetoForm({ artistaId }: { artistaId: string }) {
     ESTADO_INICIAL,
   );
 
-  if (!aberto) {
-    return (
+  return (
+    <>
       <Button variant="outline" size="sm" onClick={() => setAberto(true)}>
         <Plus className="h-4 w-4" aria-hidden />
         Novo projeto
       </Button>
-    );
-  }
+      <Modal open={aberto} onClose={() => setAberto(false)} title="Novo projeto">
+        <form action={formAction} className="flex flex-col gap-3">
+          <input type="hidden" name="artistaId" value={artistaId} />
+          <input type="hidden" name="caminho" value={caminho} />
 
-  return (
-    <form
-      action={formAction}
-      className="w-full max-w-md animate-fade-in-up rounded-lg border border-line bg-surface p-4 shadow-lg shadow-black/20"
-    >
-      <div className="mb-3 flex items-center justify-between">
-        <h3 className="text-sm font-semibold">Novo projeto</h3>
-        <button
-          type="button"
-          onClick={() => setAberto(false)}
-          aria-label="Fechar"
-          className="rounded-md p-1.5 text-muted transition-colors duration-200 hover:bg-surface2 hover:text-fg"
-        >
-          <X className="h-4 w-4" aria-hidden />
-        </button>
-      </div>
+          <Field label="Nome">
+            <Input name="nome" required placeholder="Nome do projeto" />
+          </Field>
+          <Field label="Tipo">
+            <Select name="tipo" defaultValue="single">
+              {TIPOS.map((t) => (
+                <option key={t} value={t}>{labelTipoProjeto(t)}</option>
+              ))}
+            </Select>
+          </Field>
 
-      <input type="hidden" name="artistaId" value={artistaId} />
-      <input type="hidden" name="caminho" value={caminho} />
-
-      <div className="flex flex-col gap-3">
-        <Field label="Nome">
-          <Input name="nome" required placeholder="Nome do projeto" />
-        </Field>
-        <Field label="Tipo">
-          <Select name="tipo" defaultValue="single">
-            {TIPOS.map((t) => (
-              <option key={t} value={t}>{labelTipoProjeto(t)}</option>
-            ))}
-          </Select>
-        </Field>
-        <Button type="submit" size="sm" disabled={pendente}>
-          {pendente ? "Criando..." : "Criar projeto"}
-        </Button>
-        {estado.status === "error" && (
-          <p className="text-xs text-danger">{estado.message}</p>
-        )}
-      </div>
-    </form>
+          <div className="flex flex-col gap-2">
+            <Button type="submit" size="sm" disabled={pendente} className="self-start">
+              {pendente ? "Criando..." : "Criar projeto"}
+            </Button>
+            {estado.status === "error" && (
+              <p className="text-xs text-danger">{estado.message}</p>
+            )}
+          </div>
+        </form>
+      </Modal>
+    </>
   );
 }

@@ -5,6 +5,7 @@ import { Waveform } from "@/components/player/Waveform";
 import { usePlayer } from "@/components/player/PlayerContext";
 import { ListaComentarios } from "@/components/faixa/ListaComentarios";
 import { UploadVersao } from "@/components/faixa/UploadVersao";
+import { SepararStems } from "@/components/faixa/SepararStems";
 import { CapaUploader } from "@/components/capa/CapaUploader";
 import { VincularYoutube } from "@/components/faixa/VincularYoutube";
 import { NovoComentario } from "@/components/faixa/NovoComentario";
@@ -91,7 +92,13 @@ export function FaixaClient({
             <VincularYoutube faixaId={faixa.id} youtubeVideoId={faixa.youtubeVideoId} />
           </div>
         </div>
-        <UploadVersao faixaId={faixa.id} />
+        <div className="flex flex-wrap items-start gap-2">
+          {/* Stems só de uma versão "cheia" — não faz sentido separar um stem. */}
+          {!versaoExibida.arquivoPath?.startsWith(`${faixa.id}/stems/`) && (
+            <SepararStems versaoId={versaoExibida.id} rotulo={versaoExibida.rotulo} />
+          )}
+          <UploadVersao faixaId={faixa.id} />
+        </div>
       </div>
 
       <div className="relative mb-2">

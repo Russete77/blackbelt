@@ -14,7 +14,15 @@ import { Card, CardBody } from "@/components/ui/Card";
 import {
   buscarFootprintYoutube, importarVideosSelecionados, type EstadoImportacaoFootprint,
 } from "@/app/(app)/importar/actions";
+import { youtubeThumbnailUrl } from "@/lib/faixa";
 import type { VideoBuscaYoutube } from "@/lib/youtube";
+
+// Extrai só o ano de um publishedAt ISO ("2023-05-01T…") — ajuda a bater o
+// olho e distinguir o lançamento real de um re-upload/cover antigo.
+function anoDe(publishedAt: string): string {
+  const ano = publishedAt.slice(0, 4);
+  return /^\d{4}$/.test(ano) ? ano : "";
+}
 
 const ESTADO_INICIAL: EstadoImportacaoFootprint = { status: "idle" };
 
@@ -97,24 +105,36 @@ export function BuscarFootprintYoutube({
             <input type="hidden" name="videosJson" value={videosJson} />
 
             <ul className="flex max-h-72 flex-col gap-2 overflow-y-auto pr-1">
-              {resultados.map((v) => (
-                <li key={v.videoId}>
-                  <label className="flex cursor-pointer items-start gap-3 rounded-md border border-line p-2 transition-colors duration-200 hover:border-accent/40 has-[:checked]:border-accent has-[:checked]:bg-surface2/60">
-                    <input
-                      type="checkbox"
-                      className="mt-1 accent-accent"
-                      checked={marcados.has(v.videoId)}
-                      onChange={() => alternar(v.videoId)}
-                    />
-                    <div className="min-w-0 flex-1">
-                      <p className="line-clamp-2 text-sm font-medium">{v.titulo}</p>
-                      <p className="text-xs text-muted">
-                        {v.canalTitulo} · {v.viewCount.toLocaleString("pt-BR")} views
-                      </p>
-                    </div>
-                  </label>
-                </li>
-              ))}
+              {resultados.map((v) => {
+                const ano = anoDe(v.publishedAt);
+                return (
+                  <li key={v.videoId}>
+                    <label className="flex cursor-pointer items-center gap-3 rounded-md border border-line p-2 transition-colors duration-200 hover:border-accent/40 has-[:checked]:border-accent has-[:checked]:bg-surface2/60">
+                      <input
+                        type="checkbox"
+                        className="accent-accent"
+                        checked={marcados.has(v.videoId)}
+                        onChange={() => alternar(v.videoId)}
+                      />
+                      {/* Thumbnail: identificação visual — dá pra ver na hora se é o clipe certo. */}
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={youtubeThumbnailUrl(v.videoId)}
+                        alt=""
+                        loading="lazy"
+                        className="h-12 w-20 shrink-0 rounded object-cover"
+                      />
+                      <div className="min-w-0 flex-1">
+                        <p className="line-clamp-2 text-sm font-medium">{v.titulo}</p>
+                        <p className="text-xs text-muted">
+                          {v.canalTitulo} · {v.viewCount.toLocaleString("pt-BR")} views
+                          {ano ? ` · ${ano}` : ""}
+                        </p>
+                      </div>
+                    </label>
+                  </li>
+                );
+              })}
             </ul>
 
             <div className="flex flex-wrap items-center gap-2">
