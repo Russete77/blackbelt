@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { AgendaShows } from "@/components/shows/AgendaShows";
 import { FiltroArtista } from "@/components/shows/FiltroArtista";
-import { NovoShowLink } from "@/components/shows/NovoShowLink";
+import { NovoShowButton } from "@/components/shows/NovoShowButton";
 import { getArtistas, getShows } from "@/lib/db";
 
 // Agenda de shows do selo: próximas datas por mês + histórico, com filtro
@@ -32,7 +32,7 @@ export default async function ShowsPage({
               <FiltroArtista artistas={artistas} />
             </Suspense>
           </div>
-          <NovoShowLink artistaId={artista} />
+          <NovoShowButton artistas={artistas} artistaId={artista} />
         </div>
       </div>
 
