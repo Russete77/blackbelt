@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { getArtista, getSignedCoverUrl } from "@/lib/db";
 import { ArtistaTabs } from "@/components/artista/ArtistaTabs";
+import { ResumoArtista } from "@/components/artista/ResumoArtista";
 import { CapaUploader } from "@/components/capa/CapaUploader";
 import { Avatar } from "@/components/ui/Avatar";
 
@@ -31,6 +32,7 @@ export default async function ArtistaLayout({
           <CapaUploader tipo="artista" id={artista.id} rotulo="Foto" className="mt-1.5 inline-block" />
         </div>
       </div>
+      <ResumoArtista artistaId={artista.id} slug={slug} />
       <ArtistaTabs slug={slug} />
       <div className="mt-6">{children}</div>
     </div>
