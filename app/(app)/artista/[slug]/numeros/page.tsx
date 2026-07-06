@@ -65,6 +65,13 @@ export default async function NumerosPage({
     };
   });
   const recebimentoTotal = linhasFaixasSplit.reduce((s, l) => s + (l.recebimento ?? 0), 0);
+  // Igual ao StatTile "Receita" de app/(app)/analytics/page.tsx: precisa
+  // somar a receita JÁ COM a estimativa por plataforma (não `totais.receita`
+  // puro), senão este número no topo não muda quando o usuário ajusta as
+  // taxas em FiltroTaxas — mesmo enquanto "Recebimento do artista" e a
+  // tabela "Por faixa" abaixo mudam. Os dois lugares têm que bater.
+  const receitaTotalEstimada = linhasFaixasSplit.reduce((s, l) => s + (l.receita ?? 0), 0);
+  const totalTemEstimativa = linhasFaixasSplit.some((l) => l.receitaEstimada);
 
   // Uma série só (streams por plataforma do MESMO artista): a identidade
   // categórica aqui é a posição no eixo X, não a cor — todas as barras usam
@@ -93,7 +100,11 @@ export default async function NumerosPage({
         <>
           <div className="grid gap-4 sm:grid-cols-3">
             <StatTile icon={Headphones} label="Streams" value={formatarStreams(totais.streams)} />
-            <StatTile icon={Wallet} label="Receita" value={formatarValorDual(totais.receita, "BRL", cotacao.brl)} />
+            <StatTile
+              icon={Wallet}
+              label="Receita"
+              value={formatarValorDual(receitaTotalEstimada, "BRL", cotacao.brl) + (totalTemEstimativa ? " · est." : "")}
+            />
             <StatTile
               icon={HandCoins}
               label="Recebimento do artista"

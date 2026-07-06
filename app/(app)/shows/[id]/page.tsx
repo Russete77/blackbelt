@@ -1,22 +1,23 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, Banknote, CalendarClock, MapPin, Pencil } from "lucide-react";
+import { ArrowLeft, Banknote, CalendarClock, MapPin } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
+import { EditarShowButton } from "@/components/shows/EditarShowButton";
 import { ExcluirShowButton } from "@/components/shows/ExcluirShowButton";
 import { RiderCamarimView, RiderTecnicoView } from "@/components/shows/RiderViews";
-import { getShow } from "@/lib/db";
+import { getArtistas, getShow } from "@/lib/db";
 import { formatarCache, formatarDataShow, labelStatusShow, toneStatusShow } from "@/lib/shows";
 import { createClient } from "@/lib/supabase/server";
 
-// Detalhe do show: dados principais + riders completos, com editar e
-// apagar (apagar é admin-only — RLS + checagem de papel no JWT).
+// Detalhe do show: dados principais + riders completos, com editar (em
+// modal) e apagar (apagar é admin-only — RLS + checagem de papel no JWT).
 export default async function ShowPage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const show = await getShow(id);
+  const [show, artistas] = await Promise.all([getShow(id), getArtistas()]);
   if (!show) return notFound();
 
   const supabase = await createClient();
@@ -60,13 +61,7 @@ export default async function ShowPage({
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <Link
-            href={`/shows/${show.id}/editar`}
-            className="inline-flex h-9 items-center gap-2 rounded-md border border-line px-3 text-sm font-medium text-fg transition-all duration-200 hover:border-accent/40 hover:bg-surface2"
-          >
-            <Pencil className="h-4 w-4" aria-hidden />
-            Editar
-          </Link>
+          <EditarShowButton artistas={artistas} show={show} />
           {isAdmin && <ExcluirShowButton showId={show.id} />}
         </div>
       </div>
