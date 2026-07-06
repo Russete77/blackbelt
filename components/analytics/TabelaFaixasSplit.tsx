@@ -1,6 +1,7 @@
 import { Music2 } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { InfoTip } from "@/components/ui/InfoTip";
 import { formatarStreams } from "@/lib/metricas";
 import { formatarValorDual } from "@/lib/cambio";
 import { labelPlataforma } from "@/lib/labels";
@@ -40,9 +41,24 @@ export function TabelaFaixasSplit({
               <th className="px-4 py-2.5 font-medium">Faixa</th>
               <th className="px-4 py-2.5 font-medium">Papel</th>
               <th className="px-4 py-2.5 text-right font-medium">Streams</th>
-              <th className="px-4 py-2.5 text-right font-medium">Receita da faixa</th>
-              <th className="px-4 py-2.5 text-right font-medium">% do artista</th>
-              <th className="px-4 py-2.5 text-right font-medium">Recebimento</th>
+              <th className="px-4 py-2.5 text-right font-medium">
+                <span className="inline-flex items-center justify-end gap-1">
+                  Receita da faixa
+                  <InfoTip texto={'Quando marcada "est.": calculada das views × uma taxa média por plataforma. O valor real vem da planilha do distribuidor.'} />
+                </span>
+              </th>
+              <th className="px-4 py-2.5 text-right font-medium">
+                <span className="inline-flex items-center justify-end gap-1">
+                  % do artista
+                  <InfoTip texto="Sua fatia na faixa. Em feats costuma ser menor." />
+                </span>
+              </th>
+              <th className="px-4 py-2.5 text-right font-medium">
+                <span className="inline-flex items-center justify-end gap-1">
+                  Recebimento
+                  <InfoTip texto="O que fica pra você: a receita da faixa vezes o seu %." />
+                </span>
+              </th>
             </tr>
           </thead>
           <tbody className="divide-y divide-line">
