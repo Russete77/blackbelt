@@ -37,7 +37,13 @@ export async function notificarArtista(
     mensagem,
     link: link ?? null,
   }));
-  await supabase.from("notificacoes").insert(linhas);
+  const { error: erroInsert } = await supabase.from("notificacoes").insert(linhas);
+  if (erroInsert) {
+    console.error("notificarArtista: falha ao inserir notificações", {
+      artistaId,
+      erroInsert,
+    });
+  }
 
   // TODO(email): quando houver um provedor configurado (ex.: Resend, com
   // conta/API key própria), enviar aqui um e-mail espelhando esta
@@ -54,7 +60,14 @@ export async function marcarLida(id: string): Promise<void> {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return;
 
-  await supabase.from("notificacoes").update({ lida: true }).eq("id", id).eq("user_id", user.id);
+  const { error } = await supabase
+    .from("notificacoes")
+    .update({ lida: true })
+    .eq("id", id)
+    .eq("user_id", user.id);
+  if (error) {
+    console.error("marcarLida: falha ao marcar notificação como lida", { id, error });
+  }
   revalidatePath("/", "layout");
 }
 
@@ -65,6 +78,16 @@ export async function marcarTodasLidas(): Promise<void> {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return;
 
-  await supabase.from("notificacoes").update({ lida: true }).eq("user_id", user.id).eq("lida", false);
+  const { error } = await supabase
+    .from("notificacoes")
+    .update({ lida: true })
+    .eq("user_id", user.id)
+    .eq("lida", false);
+  if (error) {
+    console.error("marcarTodasLidas: falha ao marcar notificações como lidas", {
+      userId: user.id,
+      error,
+    });
+  }
   revalidatePath("/", "layout");
 }

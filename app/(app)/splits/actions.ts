@@ -27,6 +27,11 @@ interface ParticipanteValido {
   percentual: number;
 }
 
+// Formato estrito de UUID — artistaId chega de JSON.parse (FormData) e é
+// interpolado no filtro `.not("artista_id", "in", "(...)")` mais abaixo; sem
+// essa validação, vírgula/parênteses no valor quebrariam o filtro do Postgrest.
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 // Substitui (delete-then-insert) as linhas de faixa_artistas de uma faixa
 // pela lista enviada — mesmo padrão de "confirma o estado inteiro" que
 // vincularYoutube usa para o campo único, aqui para uma lista. Participantes
@@ -52,6 +57,9 @@ export async function salvarSplits(_estado: EstadoSplits, formData: FormData): P
   for (const item of bruto as ParticipanteEntrada[]) {
     const artistaId = String(item?.artistaId ?? "").trim();
     if (!artistaId) return { status: "error", message: "Selecione um artista para cada participante." };
+    if (!UUID_REGEX.test(artistaId)) {
+      return { status: "error", message: "Artista inválido." };
+    }
     if (idsVistos.has(artistaId)) {
       return { status: "error", message: "Um artista não pode aparecer duas vezes na mesma faixa." };
     }

@@ -64,6 +64,9 @@ async function garantirProjeto(
     .from("projeto_artistas")
     .insert({ projeto_id: novoProjeto.id, artista_id: artistaId });
   if (vinculoError) {
+    // Sem o vínculo o projeto fica órfão (nenhum artista o referencia) —
+    // desfaz a criação em vez de deixar lixo no banco.
+    await supabase.from("projetos").delete().eq("id", novoProjeto.id);
     return { status: "error", message: "Projeto criado, mas falhou o vínculo com o artista." };
   }
   return novoProjeto.id;
@@ -171,19 +174,30 @@ export async function importarCatalogoDeezer(
 
   const { data: faixasExistentes, error: faixasError } = await supabase
     .from("faixas")
-    .select("titulo")
+    .select("titulo, deezer_track_id")
     .eq("projeto_id", projetoId);
   if (faixasError) return { status: "error", message: "Não foi possível verificar as faixas existentes." };
 
-  const titulosExistentes = new Set((faixasExistentes ?? []).map((f) => f.titulo.trim().toLowerCase()));
+  // Dedup principal por deezer_track_id (estável mesmo se o título mudar);
+  // título só entra como fallback pras faixas antigas sem o track_id gravado.
+  const trackIdsExistentes = new Set(
+    (faixasExistentes ?? []).map((f) => f.deezer_track_id).filter((id): id is string => Boolean(id)),
+  );
+  const titulosExistentes = new Set(
+    (faixasExistentes ?? []).filter((f) => !f.deezer_track_id).map((f) => f.titulo.trim().toLowerCase()),
+  );
 
   let criadas = 0;
   let existentes = 0;
   let erros = 0;
   let ultimoErro = "";
   for (const faixa of faixasCatalogo) {
-    const chave = faixa.titulo.trim().toLowerCase();
-    if (titulosExistentes.has(chave)) { existentes++; continue; }
+    const temTrackId = Boolean(faixa.deezerTrackId);
+    const chaveTitulo = faixa.titulo.trim().toLowerCase();
+    const jaExiste = temTrackId
+      ? trackIdsExistentes.has(faixa.deezerTrackId)
+      : titulosExistentes.has(chaveTitulo);
+    if (jaExiste) { existentes++; continue; }
 
     const { data: novaFaixa, error } = await supabase.from("faixas").insert({
       projeto_id: projetoId,
@@ -196,7 +210,7 @@ export async function importarCatalogoDeezer(
     }).select("id").single();
     // Erro de insert NÃO é "já existente" — reporta de verdade (não mascara).
     if (error || !novaFaixa) { erros++; ultimoErro = error?.message ?? "erro desconhecido"; continue; }
-    titulosExistentes.add(chave);
+    if (temTrackId) trackIdsExistentes.add(faixa.deezerTrackId); else titulosExistentes.add(chaveTitulo);
     criadas++;
     // Catálogo é sempre autoral do artista conectado — split do dono automático.
     await criarSplitDono(supabase, novaFaixa.id, artistaId);
@@ -301,25 +315,42 @@ export async function sincronizarCanalYoutube(
   const projetoId = await garantirProjeto(supabase, artistaId, "Canal YouTube", "single");
   if (typeof projetoId !== "string") return projetoId;
 
+  // Vídeo/faixa é deduplicado por youtube_video_id em QUALQUER projeto do
+  // artista (Catálogo, Canal YouTube, Aparições/Footprint) — não só neste
+  // projeto —, senão o mesmo vídeo reaparece como faixa duplicada quando já
+  // foi importado por outra via (ex.: footprint cross-channel).
+  const { data: vinculosArtista, error: vinculosArtistaError } = await supabase
+    .from("projeto_artistas")
+    .select("projeto_id")
+    .eq("artista_id", artistaId);
+  if (vinculosArtistaError) return { status: "error", message: "Não foi possível verificar as faixas existentes." };
+  const projetosDoArtista = (vinculosArtista ?? []).map((v) => v.projeto_id);
+
   const { data: faixasExistentes, error: faixasError } = await supabase
     .from("faixas")
-    .select("id, titulo, youtube_video_id")
-    .eq("projeto_id", projetoId);
+    .select("id, titulo, youtube_video_id, projeto_id")
+    .in("projeto_id", projetosDoArtista);
   if (faixasError) return { status: "error", message: "Não foi possível verificar as faixas existentes." };
 
   const porVideoId = new Map<string, { id: string }>();
-  const porTitulo = new Map<string, { id: string }>();
+  // Fallback por título só considera faixas DESTE projeto ainda SEM vínculo de
+  // vídeo — se o título bater mas a faixa já tiver um youtube_video_id
+  // diferente (vínculo manual ou de outra sincronização), não é a mesma
+  // faixa: tratamos como vídeo novo, sem sobrescrever o vínculo existente.
+  const porTituloSemVinculo = new Map<string, { id: string }>();
   for (const f of faixasExistentes ?? []) {
     if (f.youtube_video_id) porVideoId.set(f.youtube_video_id, { id: f.id });
-    porTitulo.set(f.titulo.trim().toLowerCase(), { id: f.id });
+    else if (f.projeto_id === projetoId) porTituloSemVinculo.set(f.titulo.trim().toLowerCase(), { id: f.id });
   }
 
   const hoje = new Date().toISOString().slice(0, 10);
   let faixasCriadas = 0;
   let viewsSincronizadas = 0;
+  let erros = 0;
+  let ultimoErro = "";
 
   for (const video of videos) {
-    let faixa = porVideoId.get(video.videoId) ?? porTitulo.get(video.titulo.trim().toLowerCase());
+    let faixa = porVideoId.get(video.videoId) ?? porTituloSemVinculo.get(video.titulo.trim().toLowerCase());
 
     if (!faixa) {
       const { data: novaFaixa, error } = await supabase
@@ -334,17 +365,19 @@ export async function sincronizarCanalYoutube(
         })
         .select("id")
         .single();
-      if (error || !novaFaixa) continue;
+      if (error || !novaFaixa) { erros++; ultimoErro = error?.message ?? "erro desconhecido"; continue; }
       faixa = { id: novaFaixa.id };
       porVideoId.set(video.videoId, faixa);
-      porTitulo.set(video.titulo.trim().toLowerCase(), faixa);
       faixasCriadas++;
       // Canal PRÓPRIO do artista — split do dono automático (100%).
       await criarSplitDono(supabase, faixa.id, artistaId);
     } else if (!porVideoId.has(video.videoId)) {
-      // Faixa já existia (achada por título) sem vídeo vinculado: vincula agora.
-      await supabase.from("faixas").update({ youtube_video_id: video.videoId }).eq("id", faixa.id);
-      porVideoId.set(video.videoId, faixa);
+      // Faixa já existia (achada por título, garantidamente sem vínculo prévio): vincula agora.
+      const { error: updateError } = await supabase
+        .from("faixas")
+        .update({ youtube_video_id: video.videoId })
+        .eq("id", faixa.id);
+      if (!updateError) porVideoId.set(video.videoId, faixa);
     }
 
     if (await upsertMetricaYoutube(supabase, faixa.id, artistaId, video.viewCount, hoje)) viewsSincronizadas++;
@@ -352,17 +385,19 @@ export async function sincronizarCanalYoutube(
 
   revalidatePath(caminho);
   return {
-    status: "ok",
-    message: `${faixasCriadas} faixa(s) nova(s), ${viewsSincronizadas} view(s) sincronizada(s).`,
+    status: erros > 0 && faixasCriadas === 0 && viewsSincronizadas === 0 ? "error" : "ok",
+    message:
+      `${faixasCriadas} faixa(s) nova(s), ${viewsSincronizadas} view(s) sincronizada(s)` +
+      (erros > 0 ? `, ${erros} com erro (${ultimoErro})` : "") + ".",
     faixasCriadas,
     viewsSincronizadas,
   };
 }
 
-// Snapshot de views por (faixa, plataforma=youtube): mantém UMA linha viva
-// com a leitura mais recente. O viewCount é um total acumulado — uma linha
-// por dia fazia as agregações (que somam linhas) inflarem os streams a cada
-// sync (mesmo racional de analytics/actions.ts:sincronizarYoutubeTudo).
+// Snapshot de views por (faixa, plataforma=youtube, data): uma linha por dia,
+// preservando a série histórica — se já existe leitura de hoje, atualiza;
+// senão insere uma nova linha (dias anteriores continuam intactos). Chave
+// alinhada ao índice único parcial metricas_faixa_plataforma_data_uidx.
 async function upsertMetricaYoutube(
   supabase: SupabaseServerClient,
   faixaId: string,
@@ -375,15 +410,14 @@ async function upsertMetricaYoutube(
     .select("id")
     .eq("faixa_id", faixaId)
     .eq("plataforma", "youtube")
-    .order("data", { ascending: false })
-    .limit(1)
+    .eq("data", data)
     .maybeSingle();
   if (buscaError) return false;
 
   if (existente) {
     const { error } = await supabase
       .from("metricas")
-      .update({ streams: viewCount, data, artista_id: artistaId })
+      .update({ streams: viewCount, artista_id: artistaId })
       .eq("id", existente.id);
     return !error;
   }
@@ -463,6 +497,8 @@ export async function importarVideosSelecionados(
   const hoje = new Date().toISOString().slice(0, 10);
   let faixasCriadas = 0;
   let viewsSincronizadas = 0;
+  let erros = 0;
+  let ultimoErro = "";
 
   for (const video of validos) {
     let faixa = porVideoId.get(video.videoId);
@@ -480,7 +516,7 @@ export async function importarVideosSelecionados(
         })
         .select("id")
         .single();
-      if (error || !novaFaixa) continue;
+      if (error || !novaFaixa) { erros++; ultimoErro = error?.message ?? "erro desconhecido"; continue; }
       faixa = { id: novaFaixa.id };
       porVideoId.set(video.videoId, faixa);
       faixasCriadas++;
@@ -492,8 +528,10 @@ export async function importarVideosSelecionados(
 
   revalidatePath(caminho);
   return {
-    status: "ok",
-    message: `${faixasCriadas} faixa(s) nova(s) do footprint, ${viewsSincronizadas} view(s) sincronizada(s).`,
+    status: erros > 0 && faixasCriadas === 0 && viewsSincronizadas === 0 ? "error" : "ok",
+    message:
+      `${faixasCriadas} faixa(s) nova(s) do footprint, ${viewsSincronizadas} view(s) sincronizada(s)` +
+      (erros > 0 ? `, ${erros} com erro (${ultimoErro})` : "") + ".",
     faixasCriadas,
     viewsSincronizadas,
   };

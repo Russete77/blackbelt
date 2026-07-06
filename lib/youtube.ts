@@ -14,42 +14,58 @@ export function youtubeConfigurado(): boolean {
   return Boolean(process.env.YOUTUBE_API_KEY);
 }
 
-export async function buscarViewCountYoutube(
-  videoId: string,
-): Promise<EstatisticasVideoYoutube | null> {
+// Helper interno que centraliza o padrão repetido em toda chamada à YouTube
+// Data API v3: checar a apiKey, montar a URL com os params, fazer o fetch,
+// checar resposta.ok e parsear o JSON — tudo com try/catch e log, nunca
+// lançando. Retorna null em qualquer falha (chave ausente, resposta não-ok
+// ou erro de rede/parse); quem chama decide o que fazer com esse null.
+async function fetchYoutubeApi<T>(
+  caminho: string,
+  params: Record<string, string>,
+): Promise<T | null> {
   const apiKey = process.env.YOUTUBE_API_KEY;
   if (!apiKey) {
-    console.warn("[youtube] YOUTUBE_API_KEY ausente — pulando busca automática de views.");
+    console.warn(`[youtube] YOUTUBE_API_KEY ausente — pulando chamada a ${caminho}.`);
     return null;
   }
-  if (!videoId.trim()) return null;
 
   try {
-    const url = new URL("https://www.googleapis.com/youtube/v3/videos");
-    url.searchParams.set("part", "statistics,snippet");
-    url.searchParams.set("id", videoId.trim());
+    const url = new URL(`https://www.googleapis.com/youtube/v3/${caminho}`);
+    for (const [chave, valor] of Object.entries(params)) {
+      url.searchParams.set(chave, valor);
+    }
     url.searchParams.set("key", apiKey);
 
     const resposta = await fetch(url.toString());
     if (!resposta.ok) {
-      console.error(`[youtube] API respondeu ${resposta.status} para o vídeo ${videoId}.`);
+      console.error(`[youtube] API respondeu ${resposta.status} em ${caminho}.`);
       return null;
     }
 
-    const json = (await resposta.json()) as {
-      items?: { statistics?: { viewCount?: string }; snippet?: { title?: string } }[];
-    };
-    const item = json.items?.[0];
-    if (!item?.statistics?.viewCount) return null;
-
-    const viewCount = Number(item.statistics.viewCount);
-    if (!Number.isFinite(viewCount)) return null;
-
-    return { videoId, titulo: item.snippet?.title ?? "", viewCount };
+    return (await resposta.json()) as T;
   } catch (err) {
-    console.error("[youtube] falha ao buscar estatísticas:", err);
+    console.error(`[youtube] falha ao chamar ${caminho}:`, err);
     return null;
   }
+}
+
+export async function buscarViewCountYoutube(
+  videoId: string,
+): Promise<EstatisticasVideoYoutube | null> {
+  if (!videoId.trim()) return null;
+
+  const json = await fetchYoutubeApi<{
+    items?: { statistics?: { viewCount?: string }; snippet?: { title?: string } }[];
+  }>("videos", { part: "statistics,snippet", id: videoId.trim() });
+  if (!json) return null;
+
+  const item = json.items?.[0];
+  if (!item?.statistics?.viewCount) return null;
+
+  const viewCount = Number(item.statistics.viewCount);
+  if (!Number.isFinite(viewCount)) return null;
+
+  return { videoId, titulo: item.snippet?.title ?? "", viewCount };
 }
 
 // Um video id do YouTube tem sempre 11 caracteres alfanuméricos (+ - e _).
@@ -152,46 +168,29 @@ function extrairIdentificadorCanal(input: string): IdentificadorCanal | null {
 // playlist de uploads (a única forma de listar "todos os vídeos" de um canal
 // pela Data API — não existe endpoint direto de "vídeos do canal").
 export async function resolverCanalYoutube(handleOuUrl: string): Promise<CanalYoutube | null> {
-  const apiKey = process.env.YOUTUBE_API_KEY;
-  if (!apiKey) {
-    console.warn("[youtube] YOUTUBE_API_KEY ausente — pulando resolução de canal.");
-    return null;
-  }
-
   const identificador = extrairIdentificadorCanal(handleOuUrl);
   if (!identificador) return null;
 
-  try {
-    const url = new URL("https://www.googleapis.com/youtube/v3/channels");
-    url.searchParams.set("part", "snippet,contentDetails");
-    url.searchParams.set("key", apiKey);
-    if (identificador.tipo === "id") url.searchParams.set("id", identificador.valor);
-    else if (identificador.tipo === "handle") url.searchParams.set("forHandle", identificador.valor);
-    else url.searchParams.set("forUsername", identificador.valor);
+  const params: Record<string, string> = { part: "snippet,contentDetails" };
+  if (identificador.tipo === "id") params.id = identificador.valor;
+  else if (identificador.tipo === "handle") params.forHandle = identificador.valor;
+  else params.forUsername = identificador.valor;
 
-    const resposta = await fetch(url.toString());
-    if (!resposta.ok) {
-      console.error(`[youtube] API respondeu ${resposta.status} ao resolver canal.`);
-      return null;
-    }
+  const json = await fetchYoutubeApi<{
+    items?: {
+      id?: string;
+      snippet?: { title?: string };
+      contentDetails?: { relatedPlaylists?: { uploads?: string } };
+    }[];
+  }>("channels", params);
+  if (!json) return null;
 
-    const json = (await resposta.json()) as {
-      items?: {
-        id?: string;
-        snippet?: { title?: string };
-        contentDetails?: { relatedPlaylists?: { uploads?: string } };
-      }[];
-    };
-    const item = json.items?.[0];
-    const channelId = item?.id;
-    const uploadsPlaylistId = item?.contentDetails?.relatedPlaylists?.uploads;
-    if (!channelId || !uploadsPlaylistId) return null;
+  const item = json.items?.[0];
+  const channelId = item?.id;
+  const uploadsPlaylistId = item?.contentDetails?.relatedPlaylists?.uploads;
+  if (!channelId || !uploadsPlaylistId) return null;
 
-    return { channelId, titulo: item?.snippet?.title ?? "", uploadsPlaylistId };
-  } catch (err) {
-    console.error("[youtube] falha ao resolver canal:", err);
-    return null;
-  }
+  return { channelId, titulo: item?.snippet?.title ?? "", uploadsPlaylistId };
 }
 
 export interface VideoCanalYoutube {
@@ -210,48 +209,31 @@ const LIMITE_VIDEOS_CANAL = 200;
 // viewCount e data de publicação — pagina playlistItems (50/página) e depois
 // busca estatísticas em lotes de 50 ids via videos.list.
 export async function listarVideosCanal(uploadsPlaylistId: string): Promise<VideoCanalYoutube[]> {
-  const apiKey = process.env.YOUTUBE_API_KEY;
-  if (!apiKey) {
-    console.warn("[youtube] YOUTUBE_API_KEY ausente — pulando listagem do canal.");
-    return [];
-  }
   const playlistId = uploadsPlaylistId.trim();
   if (!playlistId) return [];
 
   const idsOrdenados: { videoId: string; publishedAt: string }[] = [];
   let pageToken: string | undefined;
 
-  try {
-    do {
-      const url = new URL("https://www.googleapis.com/youtube/v3/playlistItems");
-      url.searchParams.set("part", "contentDetails");
-      url.searchParams.set("playlistId", playlistId);
-      url.searchParams.set("maxResults", "50");
-      url.searchParams.set("key", apiKey);
-      if (pageToken) url.searchParams.set("pageToken", pageToken);
+  do {
+    const params: Record<string, string> = { part: "contentDetails", playlistId, maxResults: "50" };
+    if (pageToken) params.pageToken = pageToken;
 
-      const resposta = await fetch(url.toString());
-      if (!resposta.ok) {
-        console.error(`[youtube] API respondeu ${resposta.status} ao listar vídeos do canal.`);
-        break;
-      }
-      const json = (await resposta.json()) as {
-        items?: { contentDetails?: { videoId?: string; videoPublishedAt?: string } }[];
-        nextPageToken?: string;
-      };
-      for (const item of json.items ?? []) {
-        const videoId = item.contentDetails?.videoId;
-        if (videoId) idsOrdenados.push({ videoId, publishedAt: item.contentDetails?.videoPublishedAt ?? "" });
-      }
-      pageToken = json.nextPageToken;
-    } while (pageToken && idsOrdenados.length < LIMITE_VIDEOS_CANAL);
+    const json = await fetchYoutubeApi<{
+      items?: { contentDetails?: { videoId?: string; videoPublishedAt?: string } }[];
+      nextPageToken?: string;
+    }>("playlistItems", params);
+    if (!json) break;
 
-    if (idsOrdenados.length >= LIMITE_VIDEOS_CANAL) {
-      console.warn(`[youtube] canal com mais de ${LIMITE_VIDEOS_CANAL} vídeos — importando só os ${LIMITE_VIDEOS_CANAL} primeiros.`);
+    for (const item of json.items ?? []) {
+      const videoId = item.contentDetails?.videoId;
+      if (videoId) idsOrdenados.push({ videoId, publishedAt: item.contentDetails?.videoPublishedAt ?? "" });
     }
-  } catch (err) {
-    console.error("[youtube] falha ao paginar playlist do canal:", err);
-    return [];
+    pageToken = json.nextPageToken;
+  } while (pageToken && idsOrdenados.length < LIMITE_VIDEOS_CANAL);
+
+  if (idsOrdenados.length >= LIMITE_VIDEOS_CANAL) {
+    console.warn(`[youtube] canal com mais de ${LIMITE_VIDEOS_CANAL} vídeos — importando só os ${LIMITE_VIDEOS_CANAL} primeiros.`);
   }
 
   const limitados = idsOrdenados.slice(0, LIMITE_VIDEOS_CANAL);
@@ -262,32 +244,21 @@ export async function listarVideosCanal(uploadsPlaylistId: string): Promise<Vide
 
   for (let i = 0; i < limitados.length; i += 50) {
     const lote = limitados.slice(i, i + 50).map((v) => v.videoId);
-    try {
-      const url = new URL("https://www.googleapis.com/youtube/v3/videos");
-      url.searchParams.set("part", "statistics,snippet");
-      url.searchParams.set("id", lote.join(","));
-      url.searchParams.set("key", apiKey);
 
-      const resposta = await fetch(url.toString());
-      if (!resposta.ok) {
-        console.error(`[youtube] API respondeu ${resposta.status} ao buscar estatísticas em lote.`);
-        continue;
-      }
-      const json = (await resposta.json()) as {
-        items?: { id?: string; statistics?: { viewCount?: string }; snippet?: { title?: string } }[];
-      };
-      for (const item of json.items ?? []) {
-        if (!item.id) continue;
-        const viewCount = Number(item.statistics?.viewCount ?? "0");
-        resultado.push({
-          videoId: item.id,
-          titulo: item.snippet?.title ?? "",
-          viewCount: Number.isFinite(viewCount) ? viewCount : 0,
-          publishedAt: publishedPorId.get(item.id) ?? "",
-        });
-      }
-    } catch (err) {
-      console.error("[youtube] falha ao buscar estatísticas em lote:", err);
+    const json = await fetchYoutubeApi<{
+      items?: { id?: string; statistics?: { viewCount?: string }; snippet?: { title?: string } }[];
+    }>("videos", { part: "statistics,snippet", id: lote.join(",") });
+    if (!json) continue;
+
+    for (const item of json.items ?? []) {
+      if (!item.id) continue;
+      const viewCount = Number(item.statistics?.viewCount ?? "0");
+      resultado.push({
+        videoId: item.id,
+        titulo: item.snippet?.title ?? "",
+        viewCount: Number.isFinite(viewCount) ? viewCount : 0,
+        publishedAt: publishedPorId.get(item.id) ?? "",
+      });
     }
   }
 

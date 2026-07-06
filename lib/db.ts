@@ -331,7 +331,7 @@ export async function getFaixas(): Promise<Faixa[]> {
 
 // Mesma coisa, restrita às faixas dos projetos vinculados a um artista
 // (via projeto_artistas) — usado na página "Números" do artista.
-export async function getFaixasDoArtista(artistaId: string): Promise<Faixa[]> {
+export const getFaixasDoArtista = cache(async (artistaId: string): Promise<Faixa[]> => {
   const projetos = await getProjetosDoArtista(artistaId);
   const projetoIds = projetos.map((p) => p.id);
   if (projetoIds.length === 0) return [];
@@ -343,7 +343,7 @@ export async function getFaixasDoArtista(artistaId: string): Promise<Faixa[]> {
     .order("titulo");
   if (error) throw error;
   return (data ?? []).map(mapFaixa);
-}
+});
 
 // Projetos "de estúdio" do artista: têm ao menos uma faixa 'estudio'
 // (produzida pelo selo), OU não têm faixa footprint nenhuma ainda (projeto
@@ -585,7 +585,7 @@ export async function getMetricas(): Promise<MetricaDetalhada[]> {
   return (data ?? []).map(mapMetricaDetalhada);
 }
 
-export async function getMetricasDoArtista(artistaId: string): Promise<MetricaDetalhada[]> {
+export const getMetricasDoArtista = cache(async (artistaId: string): Promise<MetricaDetalhada[]> => {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("metricas")
@@ -595,7 +595,7 @@ export async function getMetricasDoArtista(artistaId: string): Promise<MetricaDe
     .returns<MetricaJoinRow[]>();
   if (error) throw error;
   return (data ?? []).map(mapMetricaDetalhada);
-}
+});
 
 // Views/streams agregados de UMA faixa, por plataforma — base dos "Números"
 // da FootprintView (ver components/faixa/FootprintView.tsx). Soma todas as
@@ -828,7 +828,7 @@ export async function getFaixasComSplitDoArtista(artistaId: string, taxaBrl: num
 // (via seus projetos — inclui footprint/feats), não só as que têm split
 // cadastrado. O percentual vem do split quando existir; senão é null e o
 // "recebimento" fica "—" (a faixa e seus números continuam aparecendo).
-export async function getFaixasDoArtistaComNumeros(artistaId: string, taxaBrl: number): Promise<FaixaComSplit[]> {
+export const getFaixasDoArtistaComNumeros = cache(async (artistaId: string, taxaBrl: number): Promise<FaixaComSplit[]> => {
   const faixas = await getFaixasDoArtista(artistaId);
   if (faixas.length === 0) return [];
   const faixaIds = faixas.map((f) => f.id);
@@ -884,7 +884,7 @@ export async function getFaixasDoArtistaComNumeros(artistaId: string, taxaBrl: n
       receitaPorPlataforma: agr?.receitaPorPlataforma ?? {},
     };
   });
-}
+});
 
 // Contagem rápida (head-only, sem baixar linhas) de quantas faixas já têm
 // vídeo do YouTube vinculado vs. quantas ainda não — usado no selo do botão

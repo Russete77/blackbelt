@@ -108,8 +108,17 @@ export function parseNumeroPtBR(valorBruto: string): number | null {
     } else {
       normalizado = limpo.replace(",", ".");
     }
+  } else if (temPonto) {
+    // Só ponto: em geral já está no formato aceito pelo Number() ("1234.56").
+    // Exceção: padrão de milhar pt-BR — grupos de exatamente 3 dígitos
+    // ("12.345" ou "1.234.567"); ler direto como decimal errava a magnitude
+    // em 1000x.
+    const semEspacos = limpo.replace(/\s/g, "");
+    if (/^\d{1,3}(\.\d{3})+$/.test(semEspacos)) {
+      normalizado = semEspacos.replace(/\./g, "");
+    }
   }
-  // Só ponto (ou nenhum separador): já está no formato aceito pelo Number().
+  // Nenhum separador: já está no formato aceito pelo Number().
 
   const numero = Number(normalizado.replace(/\s/g, ""));
   return Number.isFinite(numero) ? numero : null;

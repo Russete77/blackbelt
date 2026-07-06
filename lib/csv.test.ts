@@ -75,6 +75,14 @@ describe("parseNumeroPtBR", () => {
     expect(parseNumeroPtBR("1234,56")).toBeCloseTo(1234.56);
     expect(parseNumeroPtBR("12,5")).toBeCloseTo(12.5);
   });
+  it("milhar pt-BR puro (só ponto, grupos de 3) não vira decimal", () => {
+    expect(parseNumeroPtBR("12.345")).toBe(12345);
+    expect(parseNumeroPtBR("1.234.567")).toBe(1234567);
+  });
+  it("ponto com grupo ≠ 3 dígitos continua decimal en-US", () => {
+    expect(parseNumeroPtBR("1234.56")).toBeCloseTo(1234.56);
+    expect(parseNumeroPtBR("12.5")).toBeCloseTo(12.5);
+  });
 });
 
 describe("parseDataCSV", () => {
