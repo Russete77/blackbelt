@@ -1,0 +1,5 @@
+fastapi
+uvicorn[standard]
+demucs
+requests
+python-multipart
