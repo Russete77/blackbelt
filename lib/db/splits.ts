@@ -1,6 +1,7 @@
 import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
 import type { Moeda } from "@/types/domain";
+import { agregarMetricasPorFaixaEmBRL } from "@/lib/metricas";
 import { getFaixasDoArtista } from "./faixas";
 
 // ------------------------------------------------------------------
@@ -94,25 +95,9 @@ export async function getFaixasComSplitDoArtista(artistaId: string, taxaBrl: num
   // plataforma dentro da faixa (base da estimativa por plataforma, ver
   // lib/estimativa.ts) — somando TODAS as métricas da faixa (independente
   // de qual artista_id a métrica foi importada). Receita em USD é
-  // convertida pra BRL antes de somar em ambos os níveis.
-  const agregadoPorFaixa = new Map<string, {
-    streams: number; receita: number; temMetrica: boolean;
-    streamsPorPlataforma: Record<string, number>; receitaPorPlataforma: Record<string, number>;
-  }>();
-  for (const m of metricasRows ?? []) {
-    if (!m.faixa_id) continue;
-    const atual = agregadoPorFaixa.get(m.faixa_id)
-      ?? { streams: 0, receita: 0, temMetrica: false, streamsPorPlataforma: {}, receitaPorPlataforma: {} };
-    const receitaBruta = m.receita != null ? Number(m.receita) : 0;
-    const receitaBRL = (m.moeda ?? "BRL") === "USD" ? receitaBruta * taxaBrl : receitaBruta;
-    const streamsNum = m.streams != null ? Number(m.streams) : 0;
-    atual.streams += streamsNum;
-    atual.receita += receitaBRL;
-    atual.temMetrica = true;
-    atual.streamsPorPlataforma[m.plataforma] = (atual.streamsPorPlataforma[m.plataforma] ?? 0) + streamsNum;
-    atual.receitaPorPlataforma[m.plataforma] = (atual.receitaPorPlataforma[m.plataforma] ?? 0) + receitaBRL;
-    agregadoPorFaixa.set(m.faixa_id, atual);
-  }
+  // convertida pra BRL antes de somar em ambos os níveis (função pura
+  // testável em lib/metricas.ts#agregarMetricasPorFaixaEmBRL).
+  const agregadoPorFaixa = agregarMetricasPorFaixaEmBRL(metricasRows ?? [], taxaBrl);
 
   return vinculos.map((v) => {
     const agr = agregadoPorFaixa.get(v.faixa_id);
@@ -158,22 +143,7 @@ export const getFaixasDoArtistaComNumeros = cache(async (artistaId: string, taxa
   const splitPorFaixa = new Map<string, { papel: string | null; percentual: number }>();
   for (const s of splitsRes.data ?? []) splitPorFaixa.set(s.faixa_id, { papel: s.papel, percentual: Number(s.percentual) });
 
-  const agregado = new Map<string, {
-    streams: number; receita: number; temMetrica: boolean;
-    streamsPorPlataforma: Record<string, number>; receitaPorPlataforma: Record<string, number>;
-  }>();
-  for (const m of metricasRes.data ?? []) {
-    if (!m.faixa_id) continue;
-    const a = agregado.get(m.faixa_id)
-      ?? { streams: 0, receita: 0, temMetrica: false, streamsPorPlataforma: {}, receitaPorPlataforma: {} };
-    const receitaBruta = m.receita != null ? Number(m.receita) : 0;
-    const receitaBRL = (m.moeda ?? "BRL") === "USD" ? receitaBruta * taxaBrl : receitaBruta;
-    const streamsNum = m.streams != null ? Number(m.streams) : 0;
-    a.streams += streamsNum; a.receita += receitaBRL; a.temMetrica = true;
-    a.streamsPorPlataforma[m.plataforma] = (a.streamsPorPlataforma[m.plataforma] ?? 0) + streamsNum;
-    a.receitaPorPlataforma[m.plataforma] = (a.receitaPorPlataforma[m.plataforma] ?? 0) + receitaBRL;
-    agregado.set(m.faixa_id, a);
-  }
+  const agregado = agregarMetricasPorFaixaEmBRL(metricasRes.data ?? [], taxaBrl);
 
   return faixas.map((f) => {
     const agr = agregado.get(f.id);

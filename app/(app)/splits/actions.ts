@@ -7,6 +7,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { caminhoSeguro } from "@/lib/forms";
+import { validarSplits, avisoSomaSplits } from "@/lib/splits";
 
 export interface EstadoSplits {
   status: "idle" | "ok" | "error";
@@ -14,23 +15,6 @@ export interface EstadoSplits {
   salvos?: number;
   somaPercentual?: number;
 }
-
-interface ParticipanteEntrada {
-  artistaId?: unknown;
-  papel?: unknown;
-  percentual?: unknown;
-}
-
-interface ParticipanteValido {
-  artista_id: string;
-  papel: string | null;
-  percentual: number;
-}
-
-// Formato estrito de UUID — artistaId chega de JSON.parse (FormData) e é
-// interpolado no filtro `.not("artista_id", "in", "(...)")` mais abaixo; sem
-// essa validação, vírgula/parênteses no valor quebrariam o filtro do Postgrest.
-const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // Substitui (delete-then-insert) as linhas de faixa_artistas de uma faixa
 // pela lista enviada — mesmo padrão de "confirma o estado inteiro" que
@@ -48,33 +32,11 @@ export async function salvarSplits(_estado: EstadoSplits, formData: FormData): P
   } catch {
     return { status: "error", message: "Lista de participantes inválida." };
   }
-  if (!Array.isArray(bruto)) {
-    return { status: "error", message: "Lista de participantes inválida." };
-  }
 
-  const participantes: ParticipanteValido[] = [];
-  const idsVistos = new Set<string>();
-  for (const item of bruto as ParticipanteEntrada[]) {
-    const artistaId = String(item?.artistaId ?? "").trim();
-    if (!artistaId) return { status: "error", message: "Selecione um artista para cada participante." };
-    if (!UUID_REGEX.test(artistaId)) {
-      return { status: "error", message: "Artista inválido." };
-    }
-    if (idsVistos.has(artistaId)) {
-      return { status: "error", message: "Um artista não pode aparecer duas vezes na mesma faixa." };
-    }
-    idsVistos.add(artistaId);
-
-    const percentual = Number(item?.percentual);
-    if (!Number.isFinite(percentual) || percentual < 0 || percentual > 100) {
-      return { status: "error", message: "O percentual de cada participante deve estar entre 0 e 100." };
-    }
-
-    const papelBruto = String(item?.papel ?? "").trim();
-    participantes.push({ artista_id: artistaId, papel: papelBruto || null, percentual });
-  }
-
-  const somaPercentual = Math.round(participantes.reduce((s, p) => s + p.percentual, 0) * 100) / 100;
+  // Validação PURA (ver lib/splits.ts) — UUID, sem duplicado, % em [0,100].
+  const validacao = validarSplits(bruto);
+  if (!validacao.ok) return { status: "error", message: validacao.erro };
+  const { participantes, somaPercentual } = validacao;
 
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -113,9 +75,7 @@ export async function salvarSplits(_estado: EstadoSplits, formData: FormData): P
 
   revalidatePath(caminho);
 
-  const avisoSoma = participantes.length > 0 && Math.abs(somaPercentual - 100) > 0.01
-    ? ` — soma de ${somaPercentual}% (não fecha 100%)`
-    : "";
+  const avisoSoma = avisoSomaSplits(participantes.length, somaPercentual);
 
   return {
     status: "ok",

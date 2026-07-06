@@ -3,7 +3,9 @@ import {
   totaisMetricas, porPlataforma, porArtista, porFaixa, porMes, porArtistaEPlataforma,
   receitaPor1kStreams, formatarReceita, formatarStreams, formatarValorPorTipo, corCategoria,
   receitaComEstimativa, recebimentoArtista, converterReceitaParaBRL, porFaixaEPlataforma,
+  agregarMetricasPorFaixaEmBRL,
 } from "./metricas";
+import type { LinhaMetricaCrua } from "./metricas";
 import type { MetricaDetalhada } from "@/types/analytics";
 
 function m(overrides: Partial<MetricaDetalhada>): MetricaDetalhada {
@@ -163,6 +165,69 @@ describe("porFaixaEPlataforma", () => {
   it("streams/receita ausentes contam como 0", () => {
     const mapa = porFaixaEPlataforma([m({ faixaId: "f1", plataforma: "youtube", streams: undefined, receita: undefined })]);
     expect(mapa.get("f1")).toEqual({ streams: { youtube: 0 }, receita: { youtube: 0 } });
+  });
+});
+
+describe("agregarMetricasPorFaixaEmBRL", () => {
+  function row(overrides: Partial<LinhaMetricaCrua>): LinhaMetricaCrua {
+    return {
+      faixa_id: "f1",
+      plataforma: "spotify",
+      streams: 1000,
+      receita: 10,
+      ...overrides,
+    };
+  }
+
+  it("mistura linhas BRL e USD: converte só o USD pela taxa antes de somar", () => {
+    const mapa = agregarMetricasPorFaixaEmBRL([
+      row({ plataforma: "spotify", streams: 1000, receita: 10, moeda: "BRL" }),
+      row({ plataforma: "youtube", streams: 500, receita: 4, moeda: "USD" }),
+    ], 5);
+    const agr = mapa.get("f1");
+    // 10 BRL + (4 USD × 5) = 10 + 20 = 30
+    expect(agr?.receita).toBe(30);
+    expect(agr?.streams).toBe(1500);
+    expect(agr?.temMetrica).toBe(true);
+  });
+
+  it("moeda ausente é tratada como BRL (não converte)", () => {
+    const mapa = agregarMetricasPorFaixaEmBRL([row({ receita: 10, moeda: null })], 5);
+    expect(mapa.get("f1")?.receita).toBe(10);
+  });
+
+  it("agrega por plataforma dentro da faixa, já em BRL", () => {
+    const mapa = agregarMetricasPorFaixaEmBRL([
+      row({ plataforma: "spotify", streams: 1000, receita: 10, moeda: "BRL" }),
+      row({ plataforma: "spotify", streams: 200, receita: 2, moeda: "BRL" }),
+      row({ plataforma: "youtube", streams: 500, receita: 4, moeda: "USD" }),
+    ], 5);
+    const agr = mapa.get("f1");
+    expect(agr?.streamsPorPlataforma).toEqual({ spotify: 1200, youtube: 500 });
+    expect(agr?.receitaPorPlataforma).toEqual({ spotify: 12, youtube: 20 });
+  });
+
+  it("separa faixas distintas e converte USD por faixa", () => {
+    const mapa = agregarMetricasPorFaixaEmBRL([
+      row({ faixa_id: "f1", receita: 10, moeda: "BRL" }),
+      row({ faixa_id: "f2", receita: 3, moeda: "USD" }),
+    ], 4);
+    expect(mapa.get("f1")?.receita).toBe(10);
+    expect(mapa.get("f2")?.receita).toBe(12);
+  });
+
+  it("aceita valores como string (Postgrest) e trata streams/receita ausentes como 0", () => {
+    const mapa = agregarMetricasPorFaixaEmBRL([
+      row({ plataforma: "youtube", streams: "300", receita: null, moeda: "USD" }),
+    ], 5);
+    const agr = mapa.get("f1");
+    expect(agr?.streams).toBe(300);
+    expect(agr?.receita).toBe(0);
+  });
+
+  it("ignora linhas sem faixa_id", () => {
+    const mapa = agregarMetricasPorFaixaEmBRL([row({ faixa_id: null, receita: 99 })], 5);
+    expect(mapa.size).toBe(0);
   });
 });
 

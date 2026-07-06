@@ -2,6 +2,7 @@
 // e a paleta categórica dos gráficos. Sem imports server-only: usado em
 // Server Components (painel/números) e nos componentes de gráfico (client).
 import type { MetricaDetalhada, TotaisMetricas, LinhaAgregada, LinhaFaixaAgregada } from "@/types/analytics";
+import type { Moeda } from "@/types/domain";
 
 // ------------------------------------------------------------------
 // Câmbio USD/BRL — normalização ANTES de agregar
@@ -19,6 +20,58 @@ export function converterReceitaParaBRL(metricas: MetricaDetalhada[], taxaUsdBrl
     if ((m.moeda ?? "BRL") !== "USD" || m.receita == null) return { ...m, moeda: "BRL" as const };
     return { ...m, receita: m.receita * taxaUsdBrl, moeda: "BRL" as const };
   });
+}
+
+// Linha CRUA de `metricas` como vem da query de splits por artista (ver
+// lib/db/splits.ts) — receita/streams podem chegar como string do Postgrest e
+// `moeda` ausente equivale a BRL.
+export interface LinhaMetricaCrua {
+  faixa_id: string | null;
+  plataforma: string;
+  streams: number | string | null;
+  receita: number | string | null;
+  moeda?: Moeda | null;
+}
+
+// Agregado de uma faixa, já em BRL: total de streams/receita da faixa (base do
+// split) + o detalhamento por plataforma (base da estimativa por plataforma).
+// `temMetrica` distingue "faixa sem nenhuma métrica" (receita/streams devem
+// virar null na UI) de "faixa com métrica de valor 0".
+export interface AgregadoFaixaBRL {
+  streams: number;
+  receita: number;
+  temMetrica: boolean;
+  streamsPorPlataforma: Record<string, number>;
+  receitaPorPlataforma: Record<string, number>;
+}
+
+// Converte cada linha de USD -> BRL (pela cotação do dia, ver lib/cambio.ts) e
+// agrega streams/receita por faixa E por plataforma dentro da faixa. É a
+// versão testável do laço que getFaixasComSplitDoArtista /
+// getFaixasDoArtistaComNumeros repetiam inline: sem converter antes de somar,
+// uma faixa com métricas em moedas diferentes teria a receita somada
+// "cegamente", misturando US$ e R$ num único número sem sentido. Linhas sem
+// faixa_id ficam de fora; streams/receita ausentes contam como 0.
+export function agregarMetricasPorFaixaEmBRL(
+  linhas: LinhaMetricaCrua[],
+  taxaBrl: number,
+): Map<string, AgregadoFaixaBRL> {
+  const agregado = new Map<string, AgregadoFaixaBRL>();
+  for (const m of linhas) {
+    if (!m.faixa_id) continue;
+    const atual = agregado.get(m.faixa_id)
+      ?? { streams: 0, receita: 0, temMetrica: false, streamsPorPlataforma: {}, receitaPorPlataforma: {} };
+    const receitaBruta = m.receita != null ? Number(m.receita) : 0;
+    const receitaBRL = (m.moeda ?? "BRL") === "USD" ? receitaBruta * taxaBrl : receitaBruta;
+    const streamsNum = m.streams != null ? Number(m.streams) : 0;
+    atual.streams += streamsNum;
+    atual.receita += receitaBRL;
+    atual.temMetrica = true;
+    atual.streamsPorPlataforma[m.plataforma] = (atual.streamsPorPlataforma[m.plataforma] ?? 0) + streamsNum;
+    atual.receitaPorPlataforma[m.plataforma] = (atual.receitaPorPlataforma[m.plataforma] ?? 0) + receitaBRL;
+    agregado.set(m.faixa_id, atual);
+  }
+  return agregado;
 }
 
 // ------------------------------------------------------------------
