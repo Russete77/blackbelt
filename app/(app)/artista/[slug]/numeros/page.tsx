@@ -99,6 +99,7 @@ export default async function NumerosPage({
               label="Recebimento do artista"
               value={formatarValorDual(recebimentoTotal, "BRL", cotacao.brl)}
               hint="Receita de cada faixa × % do artista (inclui feats)"
+              info="O que fica pra você: a receita da faixa vezes o seu %."
             />
           </div>
 
