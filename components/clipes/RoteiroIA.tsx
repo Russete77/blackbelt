@@ -1,29 +1,32 @@
 "use client";
-// "Gerar roteiro de clipe (IA)" — chama a Server Action gerarRoteiroClipe, que
-// monta o prompt com o contexto da faixa e usa o adaptador agnóstico (lib/ai.ts).
-// Sem chave de IA configurada, mostra um rascunho de EXEMPLO (mock) e avisa —
-// o fluxo funciona sem custo até plugarem a chave. Ver
-// app/(app)/faixa/[id]/roteiro-actions.ts.
+// "Roteiro de clipe (IA)" na aba Clipes: escolhe a faixa e gera o roteiro cena
+// a cena a partir da letra/gênero dela (Server Action gerarRoteiroClipe, que usa
+// o adaptador agnóstico de provedor — ver lib/ai.ts). Sem chave de IA, a action
+// devolve um erro claro pedindo pra configurar (nada de mock). Copiar leva o
+// roteiro pro clipboard pra colar numa demanda de clipe.
 import { useState, useTransition } from "react";
 import { Sparkles, Loader2, Copy, Check } from "lucide-react";
 import { Button } from "@/components/ui/Button";
+import { Field } from "@/components/ui/Field";
+import { Select } from "@/components/ui/Select";
 import { Modal } from "@/components/ui/Modal";
 import { gerarRoteiroClipe, type EstadoRoteiro } from "@/app/(app)/faixa/[id]/roteiro-actions";
+import type { Faixa } from "@/types/domain";
 
-export function GerarRoteiro({ faixaId, faixaTitulo }: { faixaId: string; faixaTitulo: string }) {
+export function RoteiroIA({ faixas }: { faixas: Faixa[] }) {
   const [aberto, setAberto] = useState(false);
+  const [faixaId, setFaixaId] = useState("");
   const [estado, setEstado] = useState<EstadoRoteiro>({ status: "idle" });
   const [pendente, iniciar] = useTransition();
   const [copiado, setCopiado] = useState(false);
 
   function gerar() {
+    if (!faixaId) {
+      setEstado({ status: "error", message: "Escolha uma faixa primeiro." });
+      return;
+    }
     setCopiado(false);
     iniciar(async () => setEstado(await gerarRoteiroClipe(faixaId)));
-  }
-
-  function abrir() {
-    setAberto(true);
-    if (estado.status === "idle") gerar();
   }
 
   async function copiar() {
@@ -33,38 +36,45 @@ export function GerarRoteiro({ faixaId, faixaTitulo }: { faixaId: string; faixaT
       setCopiado(true);
       setTimeout(() => setCopiado(false), 2000);
     } catch {
-      /* clipboard indisponível — ignora */
+      /* clipboard indisponível */
     }
   }
 
   return (
     <>
-      <Button variant="outline" size="sm" onClick={abrir} title={`Gerar roteiro de clipe para "${faixaTitulo}"`}>
+      <Button variant="outline" size="sm" onClick={() => setAberto(true)}>
         <Sparkles className="h-4 w-4" aria-hidden />
         Roteiro de clipe (IA)
       </Button>
 
       <Modal open={aberto} onClose={() => setAberto(false)} title="Roteiro de clipe (IA)">
         <div className="flex flex-col gap-3">
+          <Field label="Faixa">
+            <Select value={faixaId} onChange={(e) => setFaixaId(e.target.value)}>
+              <option value="">Escolha a faixa…</option>
+              {faixas.map((f) => (
+                <option key={f.id} value={f.id}>{f.titulo}</option>
+              ))}
+            </Select>
+          </Field>
+
           {pendente && (
             <p className="flex items-center gap-2 text-sm text-muted" role="status" aria-live="polite">
               <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
               Gerando o roteiro a partir da letra e do gênero…
             </p>
           )}
-
           {!pendente && estado.status === "error" && (
             <p className="text-sm text-danger" role="alert">{estado.message}</p>
           )}
-
           {!pendente && estado.status === "ok" && estado.roteiro && (
-            <div className="max-h-[55vh] overflow-y-auto whitespace-pre-wrap rounded-lg border border-line bg-surface2/40 p-4 text-sm leading-relaxed">
+            <div className="max-h-[50vh] overflow-y-auto whitespace-pre-wrap rounded-lg border border-line bg-surface2/40 p-4 text-sm leading-relaxed">
               {estado.roteiro}
             </div>
           )}
 
           <div className="flex flex-wrap items-center gap-2">
-            <Button size="sm" onClick={gerar} disabled={pendente}>
+            <Button size="sm" onClick={gerar} disabled={pendente || !faixaId}>
               {pendente ? "Gerando…" : estado.status === "ok" ? "Gerar outro" : "Gerar"}
             </Button>
             {estado.status === "ok" && estado.roteiro && (

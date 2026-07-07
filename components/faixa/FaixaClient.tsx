@@ -8,7 +8,6 @@ import { ListaComentarios } from "@/components/faixa/ListaComentarios";
 import { UploadVersao } from "@/components/faixa/UploadVersao";
 import { SepararStems } from "@/components/faixa/SepararStems";
 import { ListaVersoes } from "@/components/faixa/ListaVersoes";
-import { GerarRoteiro } from "@/components/faixa/GerarRoteiro";
 import { CapaUploader } from "@/components/capa/CapaUploader";
 import { VincularYoutube } from "@/components/faixa/VincularYoutube";
 import { NovoComentario } from "@/components/faixa/NovoComentario";
@@ -110,7 +109,6 @@ export function FaixaClient({
           </div>
         </div>
         <div className="flex flex-wrap items-start gap-2">
-          <GerarRoteiro faixaId={faixa.id} faixaTitulo={faixa.titulo} />
           {/* Stems só de uma versão "cheia" — não faz sentido separar um stem. */}
           {!versaoExibida.arquivoPath?.startsWith(`${faixa.id}/stems/`) && (
             <SepararStems versaoId={versaoExibida.id} rotulo={versaoExibida.rotulo} />

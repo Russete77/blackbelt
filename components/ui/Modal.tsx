@@ -39,6 +39,14 @@ export function Modal({
     onClose();
   }
 
+  // Ref sempre com a versão mais recente de fecharComConfirmacao. Assim o efeito
+  // abaixo pode depender SÓ de [open] — sem isso, ele dependia de onClose (uma
+  // arrow inline nos consumidores, nova a cada render), re-rodava a cada tecla
+  // num campo controlado e re-focava o 1º campo, roubando o foco ("só entra 1
+  // letra por clique").
+  const fecharRef = useRef(fecharComConfirmacao);
+  fecharRef.current = fecharComConfirmacao;
+
   useEffect(() => {
     if (!open) return;
 
@@ -56,7 +64,7 @@ export function Modal({
     function aoTeclar(e: KeyboardEvent) {
       if (e.key === "Escape") {
         e.stopPropagation();
-        fecharComConfirmacao();
+        fecharRef.current();
         return;
       }
       if (e.key !== "Tab") return;
@@ -79,7 +87,9 @@ export function Modal({
       document.body.style.overflow = overflowAnterior;
       focoAnteriorRef.current?.focus();
     };
-  }, [open, onClose, pedirConfirmacaoAoFechar]);
+    // Só [open]: re-rodar em cada mudança de onClose (arrow inline) roubava o
+    // foco a cada tecla. O handler usa fecharRef.current pra pegar o mais recente.
+  }, [open]);
 
   // `open` só vira true a partir de um clique no cliente (todo consumidor
   // parte de useState(false)) — nunca durante o SSR, então não há

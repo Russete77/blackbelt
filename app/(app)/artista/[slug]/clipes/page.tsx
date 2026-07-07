@@ -3,6 +3,7 @@ import { getArtista, getFaixasDoArtista, getClipesDoArtista } from "@/lib/db";
 import { createClient } from "@/lib/supabase/server";
 import { ListaClipes } from "@/components/clipes/ListaClipes";
 import { NovoClipeButton } from "@/components/clipes/NovoClipeButton";
+import { RoteiroIA } from "@/components/clipes/RoteiroIA";
 
 // Aba Clipes do workspace do artista: pipeline de videoclipe/curadoria
 // audiovisual (tabela própria `clipes`). "Novo clipe" e "Editar" abrem o
@@ -28,7 +29,10 @@ export default async function ClipesPage({
     <div>
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <h2 className="text-lg font-semibold">Clipes</h2>
-        <NovoClipeButton artistaId={artista.id} faixas={faixas} />
+        <div className="flex flex-wrap items-center gap-2">
+          <RoteiroIA faixas={faixas} />
+          <NovoClipeButton artistaId={artista.id} faixas={faixas} />
+        </div>
       </div>
       <ListaClipes
         clipes={clipes}
