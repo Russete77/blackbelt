@@ -9,6 +9,7 @@ import { UploadVersao } from "@/components/faixa/UploadVersao";
 import { SepararStems } from "@/components/faixa/SepararStems";
 import { ListaVersoes } from "@/components/faixa/ListaVersoes";
 import { CapaUploader } from "@/components/capa/CapaUploader";
+import { EstudioImagem } from "@/components/capa/EstudioImagem";
 import { VincularYoutube } from "@/components/faixa/VincularYoutube";
 import { NovoComentario } from "@/components/faixa/NovoComentario";
 import { SplitsFaixa } from "@/components/faixa/SplitsFaixa";
@@ -72,7 +73,10 @@ export function FaixaClient({
             <p className="text-sm text-muted">
               {[faixa.genero, labelEstagio(faixa.estagio)].filter(Boolean).join(" · ")}
             </p>
-            <CapaUploader tipo="faixa" id={faixa.id} rotulo="Capa" className="mt-1.5 inline-block" />
+            <div className="mt-1.5 flex flex-wrap items-center gap-2">
+              <CapaUploader tipo="faixa" id={faixa.id} rotulo="Capa" />
+              <EstudioImagem faixaId={faixa.id} />
+            </div>
             <VincularYoutube faixaId={faixa.id} youtubeVideoId={faixa.youtubeVideoId} />
           </div>
         </div>
@@ -104,7 +108,10 @@ export function FaixaClient({
                 .filter(Boolean)
                 .join(" · ")}
             </p>
-            <CapaUploader tipo="faixa" id={faixa.id} rotulo="Capa" className="mt-1.5 inline-block" />
+            <div className="mt-1.5 flex flex-wrap items-center gap-2">
+              <CapaUploader tipo="faixa" id={faixa.id} rotulo="Capa" />
+              <EstudioImagem faixaId={faixa.id} />
+            </div>
             <VincularYoutube faixaId={faixa.id} youtubeVideoId={faixa.youtubeVideoId} />
           </div>
         </div>
