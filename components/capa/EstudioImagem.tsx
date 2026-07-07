@@ -18,7 +18,9 @@ const ESTADO_INICIAL: EstadoCapa = { status: "idle" };
 
 export function EstudioImagem({ faixaId }: { faixaId: string }) {
   const [aberto, setAberto] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const fotoRef = useRef<HTMLInputElement>(null);
+  const refRef = useRef<HTMLInputElement>(null);
+  const [nFoto, setNFoto] = useState(0);
   const [nRefs, setNRefs] = useState(0);
   const [estado, formAction, gerando] = useActionState(gerarCapaIA, ESTADO_INICIAL);
   const [salvando, iniciarSalvar] = useTransition();
@@ -73,17 +75,40 @@ export function EstudioImagem({ faixaId }: { faixaId: string }) {
             />
           </Field>
 
-          <Field label="Fotos do artista / referências (opcional)">
+          <Field label="Foto do artista (mantém o rosto)">
             <button
               type="button"
-              onClick={() => inputRef.current?.click()}
+              onClick={() => fotoRef.current?.click()}
               className="inline-flex items-center gap-1.5 self-start rounded-md border border-line px-2.5 py-1.5 text-xs text-muted transition-colors hover:border-accent/50 hover:text-accent"
             >
               <Upload className="h-3.5 w-3.5" aria-hidden />
-              {nRefs > 0 ? `${nRefs} imagem(ns) selecionada(s)` : "Escolher imagens"}
+              {nFoto > 0 ? `${nFoto} foto(s) do artista` : "Escolher foto do artista"}
             </button>
             <input
-              ref={inputRef}
+              ref={fotoRef}
+              type="file"
+              name="fotoArtista"
+              accept="image/*"
+              multiple
+              className="hidden"
+              onChange={(e) => setNFoto(e.target.files?.length ?? 0)}
+            />
+            <p className="mt-1 text-[11px] text-muted">
+              A IA <b>preserva o rosto e a identidade</b> desta foto e monta a arte em volta — não recria a pessoa. Use uma foto nítida e em alta.
+            </p>
+          </Field>
+
+          <Field label="Referências de estilo (opcional)">
+            <button
+              type="button"
+              onClick={() => refRef.current?.click()}
+              className="inline-flex items-center gap-1.5 self-start rounded-md border border-line px-2.5 py-1.5 text-xs text-muted transition-colors hover:border-accent/50 hover:text-accent"
+            >
+              <Upload className="h-3.5 w-3.5" aria-hidden />
+              {nRefs > 0 ? `${nRefs} referência(s)` : "Escolher referências"}
+            </button>
+            <input
+              ref={refRef}
               type="file"
               name="referencias"
               accept="image/*"
@@ -92,7 +117,7 @@ export function EstudioImagem({ faixaId }: { faixaId: string }) {
               onChange={(e) => setNRefs(e.target.files?.length ?? 0)}
             />
             <p className="mt-1 text-[11px] text-muted">
-              A IA repagina algo <b>original</b> a partir das fotos em alta e das referências — sem copiar capas existentes.
+              Capas/imagens só pra <b>estética</b> (cor, mood, composição) — a IA inspira, mas <b>não copia</b> e não troca o artista.
             </p>
           </Field>
 

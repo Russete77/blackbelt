@@ -33,29 +33,39 @@ export async function gerarCapaIA(_prev: EstadoCapa, formData: FormData): Promis
 
   const { data: faixa } = await supabase.from("faixas").select("titulo, genero").eq("id", faixaId).maybeSingle();
 
-  // Referências: fotos em alta do artista + capas de referência (opcional).
+  // Foto(s) do artista PRIMEIRO (o modelo dá mais peso às primeiras imagens),
+  // depois referências de estilo. Assim a IA sabe quem é a pessoa a preservar.
   const referencias: ReferenciaImagem[] = [];
+  let nFotos = 0;
+  for (const item of formData.getAll("fotoArtista")) {
+    if (item instanceof File && item.size > 0 && referencias.length < MAX_REFS) {
+      referencias.push({ nome: item.name, tipo: item.type, dados: Buffer.from(await item.arrayBuffer()) });
+      nFotos++;
+    }
+  }
   for (const item of formData.getAll("referencias")) {
     if (item instanceof File && item.size > 0 && referencias.length < MAX_REFS) {
       referencias.push({ nome: item.name, tipo: item.type, dados: Buffer.from(await item.arrayBuffer()) });
     }
   }
+  const temFoto = nFotos > 0;
+  const temEstilo = referencias.length > nFotos;
 
   const prompt = [
-    `Crie uma imagem ORIGINAL de "${formato.rotulo}" para um artista de rap/funk brasileiro.`,
+    temFoto
+      // MODO RETOQUE: compõe EM CIMA da foto real, sem recriar a pessoa.
+      ? `Você é diretor de arte criando "${formato.rotulo}" a PARTIR da foto real do artista. As ${nFotos} PRIMEIRA(S) imagem(ns) é(são) a FOTO DO ARTISTA: preserve 100% o rosto, as feições, o tom de pele, o cabelo e a barba — é a pessoa real. NÃO redesenhe, NÃO idealize, NÃO troque por outra pessoa. Trate como RETOQUE/composição profissional em cima da foto: trabalhe só o fundo, a iluminação cinematográfica, a grade de cor, a profundidade, a atmosfera e o enquadramento de capa em volta dela.`
+      : `Crie uma imagem ORIGINAL de "${formato.rotulo}" para um artista de rap/funk brasileiro, cinematográfica e premium.`,
+    temEstilo
+      ? "As imagens seguintes são apenas REFERÊNCIA DE ESTILO (cor, mood, composição) — inspire-se, mas NÃO copie nenhuma obra existente e NÃO troque o artista."
+      : "",
     briefing ? `Direção do artista: ${briefing}.` : "",
-    referencias.length
-      ? "As imagens enviadas são FOTOS DO ARTISTA e/ou referências de estilo. MANTENHA FIELMENTE o rosto e a identidade do artista das fotos — é a pessoa real, não invente outro rosto nem altere as feições. Use as referências apenas para estética (cor, composição, iluminação, mood); NÃO copie nenhuma capa/obra existente."
-      : "",
-    // O título entra só como conceito — NUNCA como texto na arte (senão o
-    // modelo escreve o nome da faixa, tipo "asdasd", na imagem).
-    faixa?.titulo ? `Conceito/tema apenas para inspirar a composição (NÃO escrever na imagem): "${faixa.titulo}".` : "",
-    faixa?.genero ? `Gênero: ${faixa.genero}.` : "",
-    "IMPORTANTE: NÃO inclua NENHUM texto, título, nome, palavra, número ou logo na imagem — a menos que o briefing peça explicitamente um texto.",
-    formato.capa
-      ? "É capa de streaming: composição quadrada e forte, sem URLs, sem @ de redes; legível em miniatura."
-      : "",
-    "Estética premium, cinematográfica, iluminação marcante.",
+    faixa?.genero ? `Estilo: ${faixa.genero} brasileiro.` : "",
+    // Título só como conceito — NUNCA vira texto na arte.
+    faixa?.titulo ? `Conceito para inspirar (NÃO escrever na imagem): "${faixa.titulo}".` : "",
+    "IMPORTANTE: NÃO inclua NENHUM texto, título, nome, palavra, número ou logo na imagem — a menos que o briefing peça um texto explicitamente.",
+    formato.capa ? "Capa de streaming: composição quadrada e forte, sem URLs nem @; legível em miniatura." : "",
+    "Acabamento premium, editorial, nível de capa profissional.",
   ].filter(Boolean).join(" ");
 
   try {
