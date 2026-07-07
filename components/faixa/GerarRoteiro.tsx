@@ -8,7 +8,6 @@ import { useState, useTransition } from "react";
 import { Sparkles, Loader2, Copy, Check } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
-import { Badge } from "@/components/ui/Badge";
 import { gerarRoteiroClipe, type EstadoRoteiro } from "@/app/(app)/faixa/[id]/roteiro-actions";
 
 export function GerarRoteiro({ faixaId, faixaTitulo }: { faixaId: string; faixaTitulo: string }) {
@@ -59,17 +58,9 @@ export function GerarRoteiro({ faixaId, faixaTitulo }: { faixaId: string; faixaT
           )}
 
           {!pendente && estado.status === "ok" && estado.roteiro && (
-            <>
-              {estado.mock && (
-                <div className="flex items-center gap-2">
-                  <Badge tone="accent">rascunho de exemplo</Badge>
-                  <span className="text-xs text-muted">Configure a chave de IA no ambiente pra gerar de verdade.</span>
-                </div>
-              )}
-              <div className="max-h-[55vh] overflow-y-auto whitespace-pre-wrap rounded-lg border border-line bg-surface2/40 p-4 text-sm leading-relaxed">
-                {estado.roteiro}
-              </div>
-            </>
+            <div className="max-h-[55vh] overflow-y-auto whitespace-pre-wrap rounded-lg border border-line bg-surface2/40 p-4 text-sm leading-relaxed">
+              {estado.roteiro}
+            </div>
           )}
 
           <div className="flex flex-wrap items-center gap-2">

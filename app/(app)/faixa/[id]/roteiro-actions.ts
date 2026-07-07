@@ -4,14 +4,12 @@
 // de provedor (lib/ai.ts) — que cai num rascunho de exemplo se não houver chave.
 // Sessão do usuário (RLS aplica na leitura da faixa).
 import { createClient } from "@/lib/supabase/server";
-import { gerarTextoIA, provedorIA } from "@/lib/ai";
+import { gerarTextoIA, provedorIA, IASemChaveError } from "@/lib/ai";
 
 export interface EstadoRoteiro {
   status: "idle" | "ok" | "error";
   message?: string;
   roteiro?: string;
-  // true = veio do mock (sem chave) — a UI mostra que é rascunho de exemplo.
-  mock?: boolean;
 }
 
 const SYSTEM = [
@@ -43,10 +41,16 @@ export async function gerarRoteiroClipe(faixaId: string): Promise<EstadoRoteiro>
     "\nGere o roteiro de clipe cena a cena para esta faixa.",
   ].filter(Boolean).join("\n");
 
-  const { texto, mock } = await gerarTextoIA(partes, { system: SYSTEM, maxTokens: 1600, temperatura: 0.8 });
-  if (!texto.trim()) return { status: "error", message: "A IA não retornou conteúdo. Tente novamente." };
-
-  return { status: "ok", roteiro: texto, mock };
+  try {
+    const texto = await gerarTextoIA(partes, { system: SYSTEM, maxTokens: 1600, temperatura: 0.8 });
+    if (!texto.trim()) return { status: "error", message: "A IA não retornou conteúdo. Tente novamente." };
+    return { status: "ok", roteiro: texto };
+  } catch (e) {
+    if (e instanceof IASemChaveError) {
+      return { status: "error", message: "IA não configurada. Adicione ANTHROPIC_API_KEY, OPENAI_API_KEY ou AI_GATEWAY_API_KEY no .env.local." };
+    }
+    return { status: "error", message: `A IA falhou: ${e instanceof Error ? e.message : "erro desconhecido"}` };
+  }
 }
 
 // Exposto pra UI decidir o rótulo do botão (mock vs real) sem chamar a IA.
