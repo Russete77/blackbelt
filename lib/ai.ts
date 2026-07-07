@@ -13,7 +13,7 @@ export interface OpcoesIA {
   temperatura?: number;
 }
 
-type Provedor = "anthropic" | "openai" | "gateway";
+type Provedor = "anthropic" | "openai" | "gemini" | "gateway";
 
 // Erro lançado quando não há chave configurada — a Server Action distingue
 // isso de uma falha de rede/quota pra mostrar a mensagem certa.
@@ -28,13 +28,16 @@ export class IASemChaveError extends Error {
 export function provedorIA(): Provedor | null {
   if (process.env.ANTHROPIC_API_KEY) return "anthropic";
   if (process.env.OPENAI_API_KEY) return "openai";
+  if (process.env.GEMINI_API_KEY) return "gemini";
   if (process.env.AI_GATEWAY_API_KEY) return "gateway";
   return null;
 }
 
 const MODELO_PADRAO: Record<Provedor, string> = {
   anthropic: "claude-sonnet-4-20250514",
-  openai: "gpt-4o-mini",
+  // gpt-5.1: flagship, ótimo pra roteiro/treatment (testado). Override por AI_MODEL.
+  openai: "gpt-5.1",
+  gemini: "gemini-2.5-flash",
   // Gateway usa o formato "provedor/modelo".
   gateway: "anthropic/claude-sonnet-4",
 };
@@ -66,6 +69,26 @@ export async function gerarTextoIA(prompt: string, opts: OpcoesIA = {}): Promise
     return d?.content?.[0]?.text ?? "";
   }
 
+  if (provedor === "gemini") {
+    const r = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${modelo}:generateContent`,
+      {
+        method: "POST",
+        headers: { "x-goog-api-key": process.env.GEMINI_API_KEY!, "content-type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ role: "user", parts: [{ text: prompt }] }],
+          ...(opts.system ? { systemInstruction: { parts: [{ text: opts.system }] } } : {}),
+          generationConfig: { maxOutputTokens: maxTokens, temperature: temperatura },
+        }),
+        signal: AbortSignal.timeout(60_000),
+      },
+    );
+    if (!r.ok) throw new Error(`Gemini respondeu ${r.status}: ${(await r.text()).slice(0, 200)}`);
+    const d = await r.json();
+    const partes = d?.candidates?.[0]?.content?.parts;
+    return Array.isArray(partes) ? partes.map((p: { text?: string }) => p.text ?? "").join("") : "";
+  }
+
   // OpenAI e Gateway compartilham o formato chat/completions.
   const base = provedor === "openai" ? "https://api.openai.com/v1" : "https://ai-gateway.vercel.sh/v1";
   const chave = provedor === "openai" ? process.env.OPENAI_API_KEY! : process.env.AI_GATEWAY_API_KEY!;
@@ -73,11 +96,15 @@ export async function gerarTextoIA(prompt: string, opts: OpcoesIA = {}): Promise
     ...(opts.system ? [{ role: "system", content: opts.system }] : []),
     { role: "user", content: prompt },
   ];
+  // Modelos novos da OpenAI (gpt-5.x, o-series) EXIGEM max_completion_tokens —
+  // max_tokens é rejeitado. O Gateway pode rotear pra Anthropic etc. (max_tokens).
+  const campoTokens = provedor === "openai" ? { max_completion_tokens: maxTokens } : { max_tokens: maxTokens };
   const r = await fetch(`${base}/chat/completions`, {
     method: "POST",
     headers: { Authorization: `Bearer ${chave}`, "content-type": "application/json" },
-    body: JSON.stringify({ model: modelo, max_tokens: maxTokens, temperature: temperatura, messages: mensagens }),
-    signal: AbortSignal.timeout(60_000),
+    body: JSON.stringify({ model: modelo, ...campoTokens, temperature: temperatura, messages: mensagens }),
+    // gpt-5.x "pensa" antes de responder — pode passar de 40s num treatment longo.
+    signal: AbortSignal.timeout(120_000),
   });
   if (!r.ok) throw new Error(`${provedor} respondeu ${r.status}: ${(await r.text()).slice(0, 200)}`);
   const d = await r.json();

@@ -54,7 +54,9 @@ export async function gerarRoteiroClipe(faixaId: string, instrucoes?: string): P
   ].filter(Boolean).join("\n");
 
   try {
-    const texto = await gerarTextoIA(partes, { system: SYSTEM, maxTokens: 2800, temperatura: 0.8 });
+    // Teto alto: um treatment completo (10+ cenas + produção/VFX/viabilidade)
+    // passa de 5k tokens — com pouco, cortava no meio (faltava VFX/viabilidade).
+    const texto = await gerarTextoIA(partes, { system: SYSTEM, maxTokens: 8000, temperatura: 0.8 });
     if (!texto.trim()) return { status: "error", message: "A IA não retornou conteúdo. Tente novamente." };
     return { status: "ok", roteiro: texto };
   } catch (e) {
