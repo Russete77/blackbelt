@@ -12,15 +12,25 @@ export interface EstadoRoteiro {
   roteiro?: string;
 }
 
+// System prompt profissional: pede um TREATMENT de clipe no padrão de mercado,
+// com estrutura fixa (logline → conceito → referências → cena a cena com
+// enquadramento/câmera → produção → VFX → viabilidade). É isto que separa um
+// "textinho" de um roteiro que a produtora consegue executar.
 const SYSTEM = [
-  "Você é um diretor de videoclipe de rap/funk brasileiro, direto e visual.",
-  "Gere um ROTEIRO cena a cena, pronto pra virar demanda de produção.",
-  "Formato: Conceito (1 parágrafo); depois cenas numeradas com faixa de tempo,",
-  "locação, ação e tipo de plano/câmera; encerre com Referências visuais.",
-  "Seja concreto e factível pra uma produção independente. Português do Brasil.",
-].join(" ");
+  "Você é um DIRETOR e roteirista de videoclipe profissional, especialista em rap e funk brasileiros.",
+  "Entregue um TRATAMENTO (treatment) de clipe pronto pra produção, no padrão de mercado, em português do Brasil.",
+  "Use EXATAMENTE esta estrutura, com cada título em negrito (markdown **):",
+  "**Logline** — uma frase que resume a ideia visual do clipe.",
+  "**Conceito** — 1–2 parágrafos com a visão, a metáfora central e como ela conversa com a letra.",
+  "**Tom & Referências visuais** — estética, paleta de cor e referências (diretores, clipes, filmes).",
+  "**Roteiro cena a cena** — para CADA cena: faixa de tempo, locação, ação, enquadramento/plano, movimento de câmera, figurino/arte e transição para a próxima.",
+  "**Produção** — locações, elenco/figuração, props e figurino necessários.",
+  "**VFX & pós** — cor, efeitos e ritmo de edição casado com a batida.",
+  "**Viabilidade** — o que dá pra fazer com orçamento independente e o que exige mais recurso.",
+  "Seja concreto, cinematográfico e factível. Quando houver 'Direção do artista', trate como BRIEFING obrigatório e construa em cima dela.",
+].join("\n");
 
-export async function gerarRoteiroClipe(faixaId: string): Promise<EstadoRoteiro> {
+export async function gerarRoteiroClipe(faixaId: string, instrucoes?: string): Promise<EstadoRoteiro> {
   if (!faixaId) return { status: "error", message: "Faixa inválida." };
 
   const supabase = await createClient();
@@ -34,15 +44,17 @@ export async function gerarRoteiroClipe(faixaId: string): Promise<EstadoRoteiro>
     .maybeSingle();
   if (error || !faixa) return { status: "error", message: "Faixa não encontrada." };
 
+  const direcao = (instrucoes ?? "").trim();
   const partes = [
     `Faixa: "${faixa.titulo}".`,
     faixa.genero ? `Gênero: ${faixa.genero}.` : "",
     faixa.letra ? `Letra:\n${faixa.letra}` : "Sem letra cadastrada — trabalhe pelo título e gênero.",
-    "\nGere o roteiro de clipe cena a cena para esta faixa.",
+    direcao ? `\nDireção do artista (briefing obrigatório):\n${direcao}` : "",
+    "\nEscreva o tratamento completo do clipe para esta faixa, seguindo a estrutura pedida.",
   ].filter(Boolean).join("\n");
 
   try {
-    const texto = await gerarTextoIA(partes, { system: SYSTEM, maxTokens: 1600, temperatura: 0.8 });
+    const texto = await gerarTextoIA(partes, { system: SYSTEM, maxTokens: 2800, temperatura: 0.8 });
     if (!texto.trim()) return { status: "error", message: "A IA não retornou conteúdo. Tente novamente." };
     return { status: "ok", roteiro: texto };
   } catch (e) {

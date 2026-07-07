@@ -9,6 +9,7 @@ import { Sparkles, Loader2, Copy, Check } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Field } from "@/components/ui/Field";
 import { Select } from "@/components/ui/Select";
+import { Textarea } from "@/components/ui/Textarea";
 import { Modal } from "@/components/ui/Modal";
 import { gerarRoteiroClipe, type EstadoRoteiro } from "@/app/(app)/faixa/[id]/roteiro-actions";
 import type { Faixa } from "@/types/domain";
@@ -16,6 +17,7 @@ import type { Faixa } from "@/types/domain";
 export function RoteiroIA({ faixas }: { faixas: Faixa[] }) {
   const [aberto, setAberto] = useState(false);
   const [faixaId, setFaixaId] = useState("");
+  const [instrucoes, setInstrucoes] = useState("");
   const [estado, setEstado] = useState<EstadoRoteiro>({ status: "idle" });
   const [pendente, iniciar] = useTransition();
   const [copiado, setCopiado] = useState(false);
@@ -26,7 +28,7 @@ export function RoteiroIA({ faixas }: { faixas: Faixa[] }) {
       return;
     }
     setCopiado(false);
-    iniciar(async () => setEstado(await gerarRoteiroClipe(faixaId)));
+    iniciar(async () => setEstado(await gerarRoteiroClipe(faixaId, instrucoes)));
   }
 
   async function copiar() {
@@ -56,6 +58,15 @@ export function RoteiroIA({ faixas }: { faixas: Faixa[] }) {
                 <option key={f.id} value={f.id}>{f.titulo}</option>
               ))}
             </Select>
+          </Field>
+
+          <Field label="Direção do artista (opcional)">
+            <Textarea
+              value={instrucoes}
+              onChange={(e) => setInstrucoes(e.target.value)}
+              rows={4}
+              placeholder="Briefing pra IA seguir: história/conceito, referências (clipes, filmes), mood, locações, figurino, elementos obrigatórios, o que EVITAR, orçamento…"
+            />
           </Field>
 
           {pendente && (
