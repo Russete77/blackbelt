@@ -7,6 +7,13 @@ import type { MetricaJoinRow } from "./_shared";
 // ------------------------------------------------------------------
 // Métricas (consolidados e agregados)
 // ------------------------------------------------------------------
+// PAGINAÇÃO — decisão consciente: NÃO adicione .limit() aqui. Estas linhas são
+// SOMADAS/AGREGADAS a jusante (streams e receita em Analytics/Números/Previsão);
+// um limite cego truncaria a soma e devolveria números financeiros ERRADOS sem
+// aviso. A query que cresce sem limite por usuário (notificações) já é capada em
+// lib/db/notificacoes.ts. Se o volume de métricas crescer a ponto de doer, a
+// correção certa é pré-agregar (rollup/materialized view por faixa+plataforma+
+// mês), não paginar a soma — ver item deferido "paginação" na auditoria.
 
 // Consolidado do selo (Analytics): todas as métricas visíveis ao usuário
 // (RLS: admin vê tudo, artista vê as próprias), com artista e faixa
